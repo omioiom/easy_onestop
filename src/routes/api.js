@@ -215,6 +215,7 @@ function requireSession(req, res, next) {
 // ─── Vworld API 프록시 ───
 const VWORLD_KEY = '11735941-D649-334C-BA39-FB5D72A18BA3';
 const VWORLD_BASE = 'https://api.vworld.kr';
+const VWORLD_HEADERS = { Referer: 'https://drone.onestop.go.kr/' };
 
 /**
  * GET /api/vworld/district?x=...&y=...
@@ -226,6 +227,7 @@ router.get('/vworld/district', async (req, res) => {
 
   try {
     const result = await axios.get(`${VWORLD_BASE}/req/data`, {
+      headers: VWORLD_HEADERS,
       params: {
         KEY: VWORLD_KEY,
         DOMAIN: 'https://drone.onestop.go.kr',
@@ -260,6 +262,7 @@ router.get('/vworld/address', async (req, res) => {
 
   try {
     const result = await axios.get(`${VWORLD_BASE}/req/address`, {
+      headers: VWORLD_HEADERS,
       params: {
         service: 'address',
         version: '2.0',
@@ -287,6 +290,7 @@ router.get('/vworld/search', async (req, res) => {
   try {
     // place 검색
     const placeRes = await axios.get(`${VWORLD_BASE}/req/search`, {
+      headers: VWORLD_HEADERS,
       params: {
         service: 'search', request: 'search', version: '2.0',
         key: VWORLD_KEY, type: 'place', query: q,
@@ -295,6 +299,7 @@ router.get('/vworld/search', async (req, res) => {
     });
     // address 검색
     const addrRes = await axios.get(`${VWORLD_BASE}/req/search`, {
+      headers: VWORLD_HEADERS,
       params: {
         service: 'search', request: 'search', version: '2.0',
         key: VWORLD_KEY, type: 'address', query: q,
@@ -354,6 +359,7 @@ router.get('/vworld/airspace', async (req, res) => {
 
   try {
     const result = await axios.get(`${VWORLD_BASE}/req/wfs`, {
+      headers: VWORLD_HEADERS,
       params: {
         service: 'WFS',
         key: VWORLD_KEY,
@@ -903,6 +909,7 @@ router.post('/submit', requireSession, uploadFields, async (req, res) => {
     // 행정구역 조회 (ADDR_ID)
     try {
       const distRes = await axios.get(`${VWORLD_BASE}/req/data`, {
+        headers: VWORLD_HEADERS,
         params: {
           KEY: VWORLD_KEY,
           DOMAIN: 'https://drone.onestop.go.kr',
@@ -933,6 +940,7 @@ router.post('/submit', requireSession, uploadFields, async (req, res) => {
     if (!address) {
       try {
         const addrRes = await axios.get(`${VWORLD_BASE}/req/address`, {
+          headers: VWORLD_HEADERS,
           params: {
             service: 'address', version: '2.0', key: VWORLD_KEY,
             type: 'BOTH', request: 'GetAddress',
