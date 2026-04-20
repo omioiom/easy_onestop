@@ -896,7 +896,7 @@ router.post('/submit', requireSession, uploadFields, async (req, res) => {
     };
 
     // 2) 역지오코딩: 폴리곤 중심으로 주소 + ADDR_ID 가져오기
-    console.log('[신청] 역지오코딩...');
+    console.log(`[신청] 역지오코딩... centroidX=${centroidX}, centroidY=${centroidY}, lon=${centroidLon}, lat=${centroidLat}`);
     let address = '';
     let addrId = '';
 
@@ -914,11 +914,16 @@ router.post('/submit', requireSession, uploadFields, async (req, res) => {
           GEOMFILTER: `POINT(${centroidX} ${centroidY})`,
         },
       });
+      console.log('[신청] 행정구역 응답 status:', distRes.data?.response?.status);
       const features = distRes.data?.response?.result?.featureCollection?.features || [];
+      console.log('[신청] 행정구역 features:', features.length);
       if (features.length > 0) {
         const attrs = features[0].properties || {};
         addrId = attrs.emd_cd || attrs.EMD_CD || '';
         address = attrs.full_nm || attrs.FULL_NM || '';
+        console.log(`[신청] addrId=${addrId}, address=${address}`);
+      } else {
+        console.log('[신청] 행정구역 응답 전체:', JSON.stringify(distRes.data?.response).substring(0, 500));
       }
     } catch (e) {
       console.error('[신청] 행정구역 조회 실패:', e.message);
