@@ -1037,11 +1037,19 @@
       const endDate = document.getElementById('plan-end-date').value;
       if (!startDate || !endDate) { showErr('비행 날짜를 입력하세요.'); return; }
 
-      // 폴리곤 중심 계산
-      const coords = droneMap.polygonCoords;
+      // 폴리곤 중심 계산 (폴리곤이 없으면 원들의 중심 사용)
       let cx = 0, cy = 0;
-      for (const [x,y] of coords) { cx += x; cy += y; }
-      cx /= coords.length; cy /= coords.length;
+      const coords = droneMap.polygonCoords;
+      if (coords && coords.length > 0) {
+        for (const [x,y] of coords) { cx += x; cy += y; }
+        cx /= coords.length; cy /= coords.length;
+      } else {
+        // 원들의 중심 좌표로 계산
+        const circleData = droneMap.getCircleData();
+        if (circleData.length === 0) { showErr('비행 구역을 설정하세요.'); return; }
+        for (const c of circleData) { cx += c.x3857; cy += c.y3857; }
+        cx /= circleData.length; cy /= circleData.length;
+      }
       // EPSG:3857 → WGS84
       const cLon = cx / 6378137 * 180 / Math.PI;
       const cLat = (2 * Math.atan(Math.exp(cy / 6378137)) - Math.PI / 2) * 180 / Math.PI;
