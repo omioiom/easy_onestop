@@ -1,0 +1,1174 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Easy 원스탑</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/ol@9.1.0/ol.css">
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      background: #0f1117; color: #e1e4e8; min-height: 100vh;
+    }
+    /* ─── 로그인 ─── */
+    #login-page { display:flex; justify-content:center; align-items:center; min-height:100vh; }
+    .login-box { background:#1c1f26; border:1px solid #2d3139; border-radius:12px; padding:40px; width:400px; max-width:90vw; }
+    .login-box h1 { font-size:24px; margin-bottom:8px; color:#fff; }
+    .login-box .subtitle { color:#8b949e; font-size:14px; margin-bottom:32px; }
+    .form-group { margin-bottom:16px; }
+    .form-group label { display:block; font-size:13px; color:#8b949e; margin-bottom:5px; }
+    .form-group input, .form-group select, .form-group textarea {
+      width:100%; padding:9px 12px; background:#0f1117; border:1px solid #2d3139;
+      border-radius:8px; color:#e1e4e8; font-size:14px; outline:none; transition:border-color .2s;
+    }
+    .form-group input:focus, .form-group select:focus { border-color:#58a6ff; }
+    .form-group select { cursor:pointer; }
+    .btn { padding:10px 18px; border:none; border-radius:8px; font-size:14px; font-weight:600; cursor:pointer; transition:all .2s; }
+    .btn-full { width:100%; }
+    .btn-primary { background:#238636; color:#fff; }
+    .btn-primary:hover { background:#2ea043; }
+    .btn-primary:disabled { background:#1a5e28; cursor:not-allowed; opacity:.7; }
+    .btn-secondary { background:#30363d; color:#e1e4e8; }
+    .btn-secondary:hover { background:#3d444d; }
+    .btn-danger { background:#da3633; color:#fff; }
+    .btn-danger:hover { background:#f85149; }
+    .btn-sm { padding:6px 14px; font-size:13px; border-radius:6px; }
+    .btn-blue { background:#1f6feb; color:#fff; }
+    .btn-blue:hover { background:#388bfd; }
+    .error-msg { color:#f85149; font-size:13px; margin-top:10px; display:none; }
+    .success-msg { color:#3fb950; font-size:13px; margin-top:10px; display:none; }
+    .spinner { display:inline-block; width:14px; height:14px; border:2px solid rgba(255,255,255,.3); border-top-color:#fff; border-radius:50%; animation:spin .6s linear infinite; margin-right:6px; vertical-align:middle; }
+    @keyframes spin { to { transform:rotate(360deg); } }
+    /* ─── 메인 레이아웃 ─── */
+    #main-page { display:none; height:100vh; overflow:hidden; }
+    .topbar { background:#1c1f26; border-bottom:1px solid #2d3139; padding:10px 20px; display:flex; justify-content:space-between; align-items:center; height:50px; z-index:100; }
+    .topbar h2 { font-size:16px; color:#fff; }
+    .topbar .user-info { display:flex; align-items:center; gap:12px; }
+    .topbar .user-info span { color:#8b949e; font-size:13px; }
+    .app-body { display:flex; height:calc(100vh - 50px); }
+    /* ─── 사이드바 ─── */
+    .sidebar { width:380px; min-width:380px; background:#1c1f26; border-right:1px solid #2d3139; overflow-y:auto; }
+    .sidebar-section { padding:14px 16px; border-bottom:1px solid #2d3139; }
+    .sidebar-section h3 { font-size:13px; color:#fff; margin-bottom:10px; display:flex; align-items:center; gap:6px; }
+    .sidebar-section h3 .badge { font-size:11px; background:#30363d; color:#8b949e; padding:1px 7px; border-radius:10px; font-weight:400; }
+    .ac-item { background:#0f1117; border:1px solid #2d3139; border-radius:8px; padding:10px; margin-bottom:6px; cursor:pointer; transition:border-color .2s; }
+    .ac-item:hover { border-color:#58a6ff; }
+    .ac-item.selected { border-color:#238636; background:#0d1117; }
+    .ac-item .ac-name { font-weight:600; font-size:13px; margin-bottom:2px; }
+    .ac-item .ac-detail { color:#8b949e; font-size:12px; }
+    .toolbar { display:flex; gap:8px; flex-wrap:wrap; }
+    .circle-info { background:#0f1117; border:1px solid #2d3139; border-radius:8px; padding:10px; margin-top:8px; }
+    .circle-info .stat { display:flex; justify-content:space-between; margin-bottom:4px; font-size:13px; }
+    .circle-info .stat .label { color:#8b949e; }
+    .circle-info .stat .value { color:#e1e4e8; font-weight:600; }
+    .group-list { margin-top:6px; }
+    .group-tag { display:inline-block; padding:2px 8px; border-radius:12px; font-size:11px; font-weight:500; margin:2px 4px 2px 0; }
+    .group-tag-0 { background:rgba(35,134,54,.3); color:#238636; }
+    .group-tag-1 { background:rgba(88,166,255,.3); color:#58a6ff; }
+    .group-tag-2 { background:rgba(218,54,51,.3); color:#da3633; }
+    .group-tag-3 { background:rgba(158,106,3,.3); color:#9e6a03; }
+    .group-tag-4 { background:rgba(163,113,247,.3); color:#a371f7; }
+    .map-container { flex:1; position:relative; }
+    #map { width:100%; height:100%; }
+    .map-overlay-msg { position:absolute; top:12px; left:50%; transform:translateX(-50%); background:rgba(28,31,38,.92); border:1px solid #2d3139; padding:8px 16px; border-radius:8px; font-size:13px; color:#58a6ff; z-index:10; pointer-events:none; display:none; }
+    .airspace-tag { display:inline-block; padding:2px 8px; border-radius:4px; font-size:11px; margin:2px 4px 2px 0; }
+    .airspace-warn { background:#9e6a03; color:#fff; }
+    .airspace-danger { background:#da3633; color:#fff; }
+    .airspace-safe { background:#238636; color:#fff; }
+    .loading-text { color:#8b949e; font-size:13px; }
+    .hidden { display:none !important; }
+    /* ─── 공역 레이어 체크박스 ─── */
+    .airspace-cb { display:flex; align-items:center; gap:8px; padding:5px 0; cursor:pointer; font-size:12px; color:#c9d1d9; }
+    .airspace-cb:hover { color:#fff; }
+    .airspace-cb input[type="checkbox"] { appearance:none; width:14px; height:14px; border:2px solid #484f58; border-radius:3px; cursor:pointer; flex-shrink:0; }
+    .airspace-cb input[type="checkbox"]:checked { background:var(--cb-color, #58a6ff); border-color:var(--cb-color, #58a6ff); }
+    .airspace-swatch { width:12px; height:12px; border-radius:2px; flex-shrink:0; }
+    .form-row { display:flex; gap:10px; margin-bottom:0; }
+    .form-row .form-group { flex:1; }
+    /* ─── 프로필 ─── */
+    .profile-grid { display:grid; grid-template-columns:1fr 1fr; gap:6px 12px; font-size:12px; }
+    .profile-grid .plabel { color:#8b949e; }
+    .profile-grid .pvalue { color:#e1e4e8; font-weight:500; }
+    /* ─── 진행 상태 ─── */
+    .progress-bar { background:#21262d; border-radius:4px; height:6px; margin:8px 0; overflow:hidden; }
+    .progress-bar .fill { background:#238636; height:100%; transition:width .3s; }
+    .result-item { font-size:12px; padding:4px 0; border-bottom:1px solid #21262d; }
+    .result-item:last-child { border:none; }
+    .result-ok { color:#3fb950; }
+    .result-fail { color:#f85149; }
+    /* ─── 파일 업로드 ─── */
+    .file-upload { position:relative; }
+    .file-upload input[type=file] { display:none; }
+    .file-upload-label {
+      display:block; padding:10px; background:#0f1117; border:1px dashed #2d3139;
+      border-radius:8px; text-align:center; cursor:pointer; font-size:13px; color:#8b949e;
+      transition:border-color .2s;
+    }
+    .file-upload-label:hover { border-color:#58a6ff; }
+    .file-upload-label.has-file { border-color:#238636; color:#3fb950; border-style:solid; }
+    .flight-item { background:#0f1117; border:1px solid #2d3139; border-radius:6px; padding:8px 10px; margin-bottom:4px; cursor:pointer; transition:border-color .2s; font-size:12px; }
+    .flight-item:hover { border-color:#58a6ff; }
+    .flight-item .fi-title { color:#e1e4e8; font-weight:600; }
+    .flight-item .fi-detail { color:#8b949e; margin-top:2px; }
+  </style>
+</head>
+<body>
+  <!-- ═══════ 로그인 ═══════ -->
+  <div id="login-page">
+    <div class="login-box">
+      <h1>🛸 Easy 원스탑</h1>
+      <p class="subtitle">드론 원스탑 민원 간편 신청</p>
+      <form id="login-form">
+        <div class="form-group">
+          <label for="memberId">아이디</label>
+          <input type="text" id="memberId" placeholder="원스탑 아이디" autocomplete="username" required>
+        </div>
+        <div class="form-group">
+          <label for="password">비밀번호</label>
+          <input type="password" id="password" placeholder="비밀번호" autocomplete="current-password" required>
+        </div>
+        <button type="submit" class="btn btn-primary btn-full" id="login-btn">로그인</button>
+        <p class="error-msg" id="error-msg"></p>
+      </form>
+    </div>
+  </div>
+
+  <!-- ═══════ 메인 ═══════ -->
+  <div id="main-page">
+    <div class="topbar">
+      <h2>🛸 Easy 원스탑</h2>
+      <div class="user-info">
+        <span id="user-display"></span>
+        <button class="btn btn-sm btn-danger" id="logout-btn">로그아웃</button>
+      </div>
+    </div>
+    <div class="app-body">
+      <div class="sidebar">
+        <!-- 사용자 프로필 -->
+        <div class="sidebar-section" id="profile-section">
+          <h3>신청자 / 조종자 정보</h3>
+          <div id="profile-container"><p class="loading-text">프로필 불러오는 중...</p></div>
+        </div>
+        <!-- 기체 선택 -->
+        <div class="sidebar-section">
+          <h3>기체 선택 <span class="badge" id="ac-count">0</span></h3>
+          <div id="ac-list-container"><p class="loading-text">기체 목록 불러오는 중...</p></div>
+        </div>
+        <!-- 비행 구역 도구 -->
+        <div class="sidebar-section">
+          <h3>비행 구역 설정</h3>
+          <div class="toolbar">
+            <button class="btn btn-sm btn-blue" id="btn-draw">✏️ 영역 그리기</button>
+            <button class="btn btn-sm btn-secondary" id="btn-add-circle">➕ 원 추가</button>
+            <button class="btn btn-sm btn-secondary" id="btn-del-circle">🗑️ 원 삭제</button>
+            <button class="btn btn-sm btn-secondary" id="btn-clear">❌ 초기화</button>
+          </div>
+          <div id="mode-msg" style="display:none; margin-top:6px; padding:6px 10px; border-radius:6px; font-size:12px; font-weight:600;"></div>
+          <div style="margin-top:8px; display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
+            <label style="font-size:13px; color:#8b949e; display:flex; align-items:center; gap:4px;">
+              반지름: <input type="number" id="add-radius" value="500" min="50" max="5000" step="50"
+                style="width:70px; background:#161b22; border:1px solid #30363d; color:#e1e4e8; border-radius:4px; padding:2px 6px; font-size:13px;">m
+            </label>
+            <label style="font-size:13px; cursor:pointer; display:flex; align-items:center; gap:6px; color:#8b949e;">
+              <input type="checkbox" id="chk-fill-gaps"> 빈공간 채우기
+            </label>
+          </div>
+          <div id="circle-info-panel" class="hidden">
+            <div class="circle-info">
+              <div class="stat"><span class="label">총 원 개수</span><span class="value" id="circle-count">0</span></div>
+              <div class="stat"><span class="label">신청 건수</span><span class="value" id="group-count">0</span></div>
+              <div class="stat"><span class="label">원 반지름</span><span class="value" id="circle-radius-info">500m</span></div>
+              <div class="group-list" id="group-list"></div>
+            </div>
+          </div>
+        </div>
+        <!-- 공역 정보 -->
+        <div class="sidebar-section">
+          <h3>공역 정보</h3>
+          <div id="airspace-info"><p class="loading-text">영역을 그리면 공역을 조회합니다.</p></div>
+        </div>
+        <!-- 공역 레이어 표시 -->
+        <div class="sidebar-section">
+          <h3 style="cursor:pointer;user-select:none;" id="airspace-layer-toggle">🗺️ 공역 레이어 <span style="font-size:11px;color:#8b949e;">▼</span></h3>
+          <div id="airspace-layer-panel" style="display:none;max-height:320px;overflow-y:auto;">
+          </div>
+        </div>
+        <!-- 신청 폼 -->
+        <div class="sidebar-section" id="submit-section" style="display:none;">
+          <h3>비행 신청 정보</h3>
+          <div style="margin-bottom:10px;">
+            <button class="btn btn-sm btn-blue" id="btn-load-flight" style="width:100%;">📋 과거 비행 불러오기</button>
+          </div>
+          <!-- 과거 비행 목록 (토글) -->
+          <div id="flight-list-panel" class="hidden" style="margin-bottom:10px;">
+            <div style="font-size:12px; color:#8b949e; margin-bottom:6px;">최근 비행 이력 (선택시 자동 입력)</div>
+            <div id="flight-list-container" style="max-height:200px; overflow-y:auto;"></div>
+          </div>
+
+          <!-- ── 구분 (개인/촬영업체/관공서) ── -->
+          <div class="form-group">
+            <label>구분</label>
+            <select id="aero-profit">
+              <option value="1" selected>개인</option>
+              <option value="2">촬영업체</option>
+              <option value="3">관공서</option>
+            </select>
+          </div>
+          <div class="form-group" id="comp-nm-group" style="display:none;">
+            <label>기관(단체)명</label>
+            <input type="text" id="apply-comp-nm" placeholder="기관 또는 업체명">
+          </div>
+
+          <!-- ── 비행 목적 ── -->
+          <div class="form-group">
+            <label>비행 목적</label>
+            <select id="plan-purpose">
+              <option value="01">항공방제</option>
+              <option value="02">교통관리</option>
+              <option value="03" selected>레저비행</option>
+              <option value="04">시험비행</option>
+              <option value="18">농약살포 등 농업지원</option>
+              <option value="05">공중광고</option>
+              <option value="06">교육비행</option>
+              <option value="07">비행시연</option>
+              <option value="09">산림관측</option>
+              <option value="10">수송</option>
+              <option value="11">사진/영상촬영</option>
+              <option value="12">수색구조</option>
+              <option value="13">비행훈련</option>
+              <option value="15">계도비행</option>
+              <option value="16">항공측량</option>
+              <option value="17">비행실기시험</option>
+              <option value="19">연구·조사</option>
+              <option value="20">연구·개발(자체제작)</option>
+            </select>
+          </div>
+
+          <!-- ── 비행방식 ── -->
+          <div class="form-group">
+            <label>비행방식</label>
+            <select id="plan-purpose-etc">
+              <option value="시계비행" data-id="01" selected>시계비행</option>
+              <option value="자동비행" data-id="02">자동비행</option>
+              <option value="선회비행" data-id="03">선회비행</option>
+              <option value="격자비행" data-id="05">격자비행</option>
+              <option value="수직이착륙비행" data-id="06">수직이착륙비행</option>
+              <option value="수동조종비행" data-id="08">수동조종비행</option>
+              <option value="제자리비행" data-id="09">제자리비행</option>
+              <option value="군집비행" data-id="10">군집비행</option>
+              <option value="" data-id="00">직접입력</option>
+            </select>
+          </div>
+          <div class="form-group" id="purpose-etc-custom-group" style="display:none;">
+            <label>비행방식 직접입력</label>
+            <input type="text" id="input-plan-purpose-etc" placeholder="비행방식을 입력하세요">
+          </div>
+
+          <!-- ── 비행기간 ── -->
+          <div class="form-row">
+            <div class="form-group"><label>비행 시작일</label><input type="date" id="plan-start-date"></div>
+            <div class="form-group"><label>비행 종료일</label><input type="date" id="plan-end-date"></div>
+          </div>
+
+          <!-- ── 촬영기간 (비행+촬영 동시신청) ── -->
+          <div id="photo-dates-group">
+            <div class="form-row">
+              <div class="form-group"><label>촬영 시작일</label><input type="date" id="plan-start-date2"></div>
+              <div class="form-group"><label>촬영 종료일</label><input type="date" id="plan-end-date2"></div>
+            </div>
+          </div>
+
+          <!-- ── 비행 고도 ── -->
+          <div class="form-group">
+            <label>비행 고도 (m)</label>
+            <input type="number" id="plan-altitude" value="100" min="1" max="150">
+          </div>
+
+          <!-- ── 촬영 정보 ── -->
+          <div id="photo-fields-group">
+            <div class="form-group">
+              <label>목표물</label>
+              <input type="text" id="plan-purpose-etc-n" value="드론촬영" placeholder="촬영 목표물">
+            </div>
+            <div class="form-group">
+              <label>촬영목적/촬영용도</label>
+              <input type="text" id="plan-aero-etc" value="취미" placeholder="촬영 목적 (취미, 기록 등)">
+            </div>
+            <div class="form-group">
+              <label>촬영장비 명칭·종류</label>
+              <input type="text" id="plan-camera-desc" placeholder="예: DJI Air3S">
+            </div>
+            <!-- 촬영구분 체크박스 -->
+            <div class="form-group">
+              <label style="margin-bottom:6px;">촬영구분</label>
+              <div style="display:flex; gap:12px; flex-wrap:wrap;">
+                <label style="font-size:13px; cursor:pointer; display:flex; align-items:center; gap:4px; color:#8b949e;">
+                  <input type="checkbox" id="ac-camera-video" checked> 영상
+                </label>
+                <label style="font-size:13px; cursor:pointer; display:flex; align-items:center; gap:4px; color:#8b949e;">
+                  <input type="checkbox" id="ac-camera-viewpoint"> 관측
+                </label>
+                <label style="font-size:13px; cursor:pointer; display:flex; align-items:center; gap:4px; color:#8b949e;">
+                  <input type="checkbox" id="ac-camera-blueprint"> 도면
+                </label>
+              </div>
+            </div>
+          </div>
+
+          <!-- ── 기타(선택입력) ── -->
+          <div class="form-group">
+            <label>기타(선택입력)</label>
+            <textarea id="plan-add-etc" rows="2" placeholder="추가 설명 (선택사항)" style="width:100%; padding:9px 12px; background:#0f1117; border:1px solid #2d3139; border-radius:8px; color:#e1e4e8; font-size:14px; resize:vertical;"></textarea>
+          </div>
+
+          <!-- ── 조종자 소속/직책 ── -->
+          <div class="form-row">
+            <div class="form-group"><label>조종자 소속</label><input type="text" id="pilot-comp-nm" placeholder="선택"></div>
+            <div class="form-group"><label>조종자 직책</label><input type="text" id="pilot-comp-positon" placeholder="선택"></div>
+          </div>
+
+          <!-- ── 첨부파일 ── -->
+          <div class="form-group" style="font-size:12px; color:#58a6ff; margin-bottom:4px; margin-top:8px;">▼ 첨부서류</div>
+          <div class="form-group">
+            <div class="file-upload">
+              <input type="file" id="att-photo" accept="image/*">
+              <label for="att-photo" class="file-upload-label" id="att-photo-label">📷 기체사진 (필수)</label>
+            </div>
+          </div>
+          <div class="form-group">
+            <div class="file-upload">
+              <input type="file" id="att-spec" accept="image/*,.pdf">
+              <label for="att-spec" class="file-upload-label" id="att-spec-label">📄 제원및성능표 (필수)</label>
+            </div>
+          </div>
+          <div class="form-group" style="font-size:12px; color:#8b949e; margin-bottom:4px;">▼ 선택 첨부서류</div>
+          <div class="form-group">
+            <div class="file-upload">
+              <input type="file" id="att-reg" accept="image/*,.pdf">
+              <label for="att-reg" class="file-upload-label" id="att-reg-label">📄 신고증명서</label>
+            </div>
+          </div>
+          <div class="form-group">
+            <div class="file-upload">
+              <input type="file" id="att-appr" accept="image/*,.pdf">
+              <label for="att-appr" class="file-upload-label" id="att-appr-label">📄 안전성인증서</label>
+            </div>
+          </div>
+          <div class="form-group">
+            <div class="file-upload">
+              <input type="file" id="att-pilot" accept="image/*,.pdf">
+              <label for="att-pilot" class="file-upload-label" id="att-pilot-label">📄 조종자증명</label>
+            </div>
+          </div>
+          <div class="form-group">
+            <div class="file-upload">
+              <input type="file" id="att-insurance" accept="image/*,.pdf">
+              <label for="att-insurance" class="file-upload-label" id="att-insurance-label">📄 보험가입증명서</label>
+            </div>
+          </div>
+          <div class="form-group">
+            <div class="file-upload">
+              <input type="file" id="att-business" accept="image/*,.pdf,.doc,.docx,.hwp">
+              <label for="att-business" class="file-upload-label" id="att-business-label">📄 사용사업등록증</label>
+            </div>
+          </div>
+          <div class="form-group">
+            <div class="file-upload">
+              <input type="file" id="att-testflight" accept="image/*,.pdf">
+              <label for="att-testflight" class="file-upload-label" id="att-testflight-label">📄 시험비행허가서</label>
+            </div>
+          </div>
+          <div class="form-group">
+            <div class="file-upload">
+              <input type="file" id="att-operation" accept="image/*,.pdf,.doc,.docx,.hwp">
+              <label for="att-operation" class="file-upload-label" id="att-operation-label">📄 조작방법서류</label>
+            </div>
+          </div>
+          <div class="form-group">
+            <div class="file-upload">
+              <input type="file" id="att-businessp" accept="image/*,.pdf,.doc,.docx,.hwp">
+              <label for="att-businessp" class="file-upload-label" id="att-businessp-label">📄 촬영 첨부파일</label>
+            </div>
+          </div>
+
+          <button class="btn btn-primary btn-full" id="btn-submit" style="margin-top:10px;">🚀 신청하기</button>
+          <p class="error-msg" id="submit-error"></p>
+          <p class="success-msg" id="submit-success"></p>
+          <!-- 진행 상태 -->
+          <div id="submit-progress" class="hidden" style="margin-top:10px;">
+            <div class="progress-bar"><div class="fill" id="progress-fill" style="width:0%"></div></div>
+            <div id="progress-text" class="loading-text"></div>
+            <div id="submit-results" style="margin-top:8px;"></div>
+          </div>
+        </div>
+      </div>
+      <div class="map-container">
+        <div id="map"></div>
+        <div id="map-draw-msg" class="map-overlay-msg">지도를 클릭하여 영역을 그려주세요. 더블클릭으로 완료</div>
+        <!-- 지도 검색 -->
+        <div id="map-search-box" style="position:absolute;top:12px;left:12px;z-index:20;width:340px;">
+          <div style="display:flex;gap:0;">
+            <input type="text" id="map-search-input" placeholder="장소/주소 검색 (예: 서울시청, 인천공항)"
+              style="flex:1;padding:8px 12px;border:1px solid #2d3139;border-radius:8px 0 0 8px;background:#1c1f26;color:#e1e4e8;font-size:13px;outline:none;">
+            <button id="map-search-btn" class="btn btn-blue" style="border-radius:0 8px 8px 0;padding:8px 14px;font-size:13px;">🔍</button>
+          </div>
+          <div id="map-search-results" style="display:none;margin-top:4px;background:#1c1f26;border:1px solid #2d3139;border-radius:8px;max-height:240px;overflow-y:auto;"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/ol@9.1.0/dist/ol.js"></script>
+  <script src="/js/map.js"></script>
+  <script>
+    const API = '/api';
+    let sid = localStorage.getItem('sessionId') || null;
+    let droneMap = null;
+    let _userInfo = null;
+
+    // ─── 유틸 ───
+    function escHtml(s) { if (!s) return ''; const d = document.createElement('div'); d.textContent = s; return d.innerHTML; }
+    async function api(method, path, body) {
+      const o = { method, headers: { 'Content-Type': 'application/json' } };
+      if (sid) o.headers['x-session-id'] = sid;
+      if (body) o.body = JSON.stringify(body);
+      return (await fetch(API + path, o)).json();
+    }
+
+    // ─── 페이지 전환 ───
+    function showLogin() {
+      document.getElementById('login-page').style.display = 'flex';
+      document.getElementById('main-page').style.display = 'none';
+    }
+    function showMain(user) {
+      document.getElementById('login-page').style.display = 'none';
+      document.getElementById('main-page').style.display = 'block';
+      document.getElementById('user-display').textContent = (user?.memberId || '') + ' 로그인됨';
+      if (!droneMap) { droneMap = new DroneMap('map'); droneMap.onCirclesChanged = onCirclesChanged; initAirspacePanel(); }
+      setTimeout(() => droneMap.map.updateSize(), 100);
+      loadProfile();
+      loadAircraftList();
+      setDefaultDates();
+    }
+
+    // ─── 공역 레이어 패널 초기화 ───
+    function initAirspacePanel() {
+      const panel = document.getElementById('airspace-layer-panel');
+      const toggle = document.getElementById('airspace-layer-toggle');
+      toggle.addEventListener('click', () => {
+        panel.style.display = panel.style.display === 'none' ? 'block' : 'none';
+        toggle.querySelector('span').textContent = panel.style.display === 'none' ? '▼' : '▲';
+      });
+
+      let html = `<label class="airspace-cb" style="font-weight:bold; border-bottom:1px solid #444; padding-bottom:4px; margin-bottom:4px;">
+        <input type="checkbox" id="airspace-all">
+        <span class="airspace-swatch" style="background:linear-gradient(135deg,#ff6b6b,#4ecdc4,#45b7d1);"></span>
+        전체
+      </label>`;
+      for (const [key, cfg] of Object.entries(AIRSPACE_LAYERS)) {
+        const [r, g, b] = cfg.color;
+        html += `<label class="airspace-cb" style="--cb-color:rgb(${r},${g},${b});">
+          <input type="checkbox" data-layer="${key}">
+          <span class="airspace-swatch" style="background:rgb(${r},${g},${b});"></span>
+          ${cfg.name}
+        </label>`;
+      }
+      panel.innerHTML = html;
+
+      const allCb = document.getElementById('airspace-all');
+      const layerCbs = panel.querySelectorAll('input[data-layer]');
+
+      layerCbs.forEach(cb => {
+        cb.addEventListener('change', () => {
+          droneMap.toggleAirspace(cb.dataset.layer, cb.checked);
+          // 전체 체크 상태 동기화
+          const total = layerCbs.length;
+          const checked = panel.querySelectorAll('input[data-layer]:checked').length;
+          allCb.checked = checked === total;
+          allCb.indeterminate = checked > 0 && checked < total;
+        });
+      });
+
+      allCb.addEventListener('change', () => {
+        layerCbs.forEach(cb => {
+          cb.checked = allCb.checked;
+          droneMap.toggleAirspace(cb.dataset.layer, allCb.checked);
+        });
+      });
+    }
+
+    // ─── 로그인 ───
+    document.getElementById('login-form').addEventListener('submit', async e => {
+      e.preventDefault();
+      const btn = document.getElementById('login-btn'), err = document.getElementById('error-msg');
+      const id = document.getElementById('memberId').value.trim(), pw = document.getElementById('password').value;
+      if (!id || !pw) return;
+      btn.disabled = true; btn.innerHTML = '<span class="spinner"></span>로그인 중...'; err.style.display = 'none';
+      try {
+        const d = await api('POST', '/login', { memberId: id, password: pw });
+        if (d.success) { sid = d.sessionId; localStorage.setItem('sessionId', sid); showMain(d.user); }
+        else { err.textContent = d.message; err.style.display = 'block'; }
+      } catch (e) { err.textContent = '서버 연결 실패'; err.style.display = 'block'; }
+      finally { btn.disabled = false; btn.textContent = '로그인'; }
+    });
+    document.getElementById('logout-btn').addEventListener('click', async () => {
+      await api('POST', '/logout'); sid = null; localStorage.removeItem('sessionId'); showLogin();
+    });
+
+    // ─── 프로필 로드 ───
+    async function loadProfile() {
+      const c = document.getElementById('profile-container');
+      c.innerHTML = '<p class="loading-text">프로필 불러오는 중...</p>';
+      try {
+        const d = await api('GET', '/userinfo');
+        if (!d.success) { c.innerHTML = '<p class="loading-text">' + escHtml(d.message) + '</p>'; return; }
+        _userInfo = d.data;
+        c.innerHTML = `<div class="profile-grid">
+          <span class="plabel">이름</span><span class="pvalue">${escHtml(_userInfo.APPLY_USER_NM)}</span>
+          <span class="plabel">전화</span><span class="pvalue">${escHtml(_userInfo.APPLY_PHONE_NO)}</span>
+          <span class="plabel">생년월일</span><span class="pvalue">${escHtml(_userInfo.APPLY_BIRTHDAY_YMD)}</span>
+          <span class="plabel">자격증</span><span class="pvalue">${escHtml(_userInfo.PILOT_QUAL || '없음')}</span>
+          <span class="plabel">주소</span><span class="pvalue" style="grid-column:span 1">${escHtml(_userInfo.APPLY_ADDR)}</span>
+        </div>`;
+      } catch (e) { c.innerHTML = '<p class="loading-text">에러: ' + escHtml(e.message) + '</p>'; }
+    }
+
+    // ─── 지도 검색 ───
+    (function initMapSearch() {
+      const input = document.getElementById('map-search-input');
+      const btn = document.getElementById('map-search-btn');
+      const resultsDiv = document.getElementById('map-search-results');
+      let debounceTimer = null;
+
+      async function doSearch() {
+        const q = input.value.trim();
+        if (!q) { resultsDiv.style.display = 'none'; return; }
+        try {
+          const res = await fetch(`${API}/vworld/search?q=${encodeURIComponent(q)}`);
+          const data = await res.json();
+          if (!data.success || !data.items?.length) {
+            resultsDiv.innerHTML = '<div style="padding:10px;font-size:12px;color:#8b949e;">검색 결과 없음</div>';
+            resultsDiv.style.display = 'block';
+            return;
+          }
+          resultsDiv.innerHTML = data.items.map((it, i) => `
+            <div class="search-result-item" data-lng="${it.lng}" data-lat="${it.lat}"
+              style="padding:8px 12px;cursor:pointer;border-bottom:1px solid #21262d;${i === 0 ? '' : ''}">
+              <div style="font-size:13px;color:#e1e4e8;font-weight:500;">${escHtml(it.title)}</div>
+              <div style="font-size:11px;color:#8b949e;margin-top:2px;">${escHtml(it.address)}</div>
+            </div>
+          `).join('');
+          resultsDiv.style.display = 'block';
+
+          resultsDiv.querySelectorAll('.search-result-item').forEach(el => {
+            el.addEventListener('click', () => {
+              const lng = parseFloat(el.dataset.lng);
+              const lat = parseFloat(el.dataset.lat);
+              if (droneMap) droneMap.flyTo(lng, lat, 16);
+              resultsDiv.style.display = 'none';
+              input.value = el.querySelector('div').textContent;
+            });
+            el.addEventListener('mouseenter', () => el.style.background = '#21262d');
+            el.addEventListener('mouseleave', () => el.style.background = '');
+          });
+        } catch (e) {
+          resultsDiv.innerHTML = '<div style="padding:10px;font-size:12px;color:#f85149;">검색 오류</div>';
+          resultsDiv.style.display = 'block';
+        }
+      }
+
+      btn.addEventListener('click', doSearch);
+      input.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); doSearch(); } });
+      input.addEventListener('input', () => {
+        clearTimeout(debounceTimer);
+        debounceTimer = setTimeout(doSearch, 400);
+      });
+      // 외부 클릭시 결과 닫기
+      document.addEventListener('click', (e) => {
+        if (!e.target.closest('#map-search-box')) resultsDiv.style.display = 'none';
+      });
+    })();
+
+    // ─── 기체 목록 ───
+    async function loadAircraftList() {
+      const c = document.getElementById('ac-list-container');
+      c.innerHTML = '<p class="loading-text">불러오는 중...</p>';
+      try {
+        const d = await api('GET', '/myac');
+        if (!d.success) { c.innerHTML = '<p class="loading-text">' + escHtml(d.message) + '</p>'; return; }
+        const list = d.data?.data || [];
+        document.getElementById('ac-count').textContent = list.length;
+        if (!list.length) { c.innerHTML = '<p class="loading-text">등록된 기체가 없습니다.</p>'; return; }
+        c.innerHTML = list.map((ac, i) => `
+          <div class="ac-item" data-index="${i}" onclick="selectAc(${i})">
+            <div class="ac-name">${escHtml(ac.MY_AC_NM || ac.AC_NM || '이름 없음')}</div>
+            <div class="ac-detail">${escHtml(ac.AC_PRODUCER_NM||'')} ${escHtml(ac.AC_STANDARD||'')}</div>
+            <div class="ac-detail">${escHtml(ac.AC_USE_TYPE_NM||'')} · ${escHtml(ac.AC_PROFIT_NM||'')}</div>
+          </div>`).join('');
+        window._acList = list;
+      } catch (e) { c.innerHTML = '<p class="loading-text">에러</p>'; }
+    }
+    function selectAc(i) {
+      document.querySelectorAll('.ac-item').forEach(el => el.classList.remove('selected'));
+      document.querySelector(`.ac-item[data-index="${i}"]`)?.classList.add('selected');
+      window._selectedAc = window._acList[i];
+      // 카메라 설명 자동 채우기
+      const desc = document.getElementById('plan-camera-desc');
+      if (!desc.value && window._selectedAc?.AC_NM) desc.value = window._selectedAc.AC_NM;
+    }
+
+    // ─── 그리기 도구 ───
+    function setModeUI(mode, msg, color) {
+      const el = document.getElementById('mode-msg');
+      if (mode === 'none') { el.style.display = 'none'; }
+      else { el.style.display = 'block'; el.textContent = msg; el.style.background = color; el.style.color = '#fff'; }
+      // 버튼 활성 표시
+      document.getElementById('btn-add-circle').style.outline = mode === 'add' ? '2px solid #58a6ff' : '';
+      document.getElementById('btn-del-circle').style.outline = mode === 'delete' ? '2px solid #da3633' : '';
+    }
+
+    document.getElementById('btn-draw').addEventListener('click', () => {
+      if (!droneMap) return;
+      droneMap.setMode('none');
+      setModeUI('none');
+      droneMap.startDraw();
+      document.getElementById('map-draw-msg').style.display = 'block';
+    });
+    document.getElementById('btn-add-circle').addEventListener('click', () => {
+      if (!droneMap) return;
+      const cur = droneMap.getMode();
+      if (cur === 'add') { droneMap.setMode('none'); setModeUI('none'); }
+      else { droneMap.setMode('add'); setModeUI('add', '🖱️ 지도를 클릭하면 원이 추가됩니다 (다시 누르면 해제)', '#1a5c2e'); }
+    });
+    document.getElementById('btn-del-circle').addEventListener('click', () => {
+      if (!droneMap) return;
+      const cur = droneMap.getMode();
+      if (cur === 'delete') { droneMap.setMode('none'); setModeUI('none'); }
+      else { droneMap.setMode('delete'); setModeUI('delete', '🖱️ 삭제할 원을 클릭하세요 (다시 누르면 해제)', '#8b2020'); }
+    });
+    document.getElementById('add-radius').addEventListener('change', e => {
+      if (!droneMap) return;
+      droneMap.setAddRadius(Number(e.target.value));
+    });
+    document.getElementById('chk-fill-gaps').addEventListener('change', e => {
+      if (!droneMap) return;
+      droneMap.fillGaps = e.target.checked;
+      if (droneMap.polygonCoords) droneMap._generateCircles();
+    });
+    document.getElementById('btn-clear').addEventListener('click', () => {
+      if (!droneMap) return;
+      droneMap.setMode('none');
+      setModeUI('none');
+      droneMap.clearAll();
+      document.getElementById('map-draw-msg').style.display = 'none';
+      document.getElementById('circle-info-panel').classList.add('hidden');
+      document.getElementById('submit-section').style.display = 'none';
+      document.getElementById('airspace-info').innerHTML = '<p class="loading-text">영역을 그리면 공역을 조회합니다.</p>';
+      resetSubmitUI();
+    });
+
+    // ─── 원 생성 콜백 ───
+    function onCirclesChanged(circles, groups) {
+      document.getElementById('map-draw-msg').style.display = 'none';
+      if (!circles.length) {
+        document.getElementById('circle-info-panel').classList.add('hidden');
+        document.getElementById('submit-section').style.display = 'none';
+        return;
+      }
+      document.getElementById('circle-info-panel').classList.remove('hidden');
+      document.getElementById('circle-count').textContent = circles.length;
+      document.getElementById('group-count').textContent = groups.length + '건 (최대 10개/건)';
+      // 반지름 종류 표시
+      const radii = [...new Set(circles.map(c => c.radiusMeters))].sort((a,b)=>a-b);
+      document.getElementById('circle-radius-info').textContent = radii.map(r => r + 'm').join(', ');
+      document.getElementById('group-list').innerHTML = groups.map((g, i) =>
+        `<span class="group-tag group-tag-${i%5}">신청 ${i+1}: ${g.length}개</span>`).join('');
+      document.getElementById('submit-section').style.display = 'block';
+      resetSubmitUI();
+      queryAirspace();
+    }
+
+    // ─── 공역 조회 ───
+    async function queryAirspace() {
+      const el = document.getElementById('airspace-info');
+      el.innerHTML = '<p class="loading-text">공역 조회 중...</p>';
+      if (!droneMap?.polygonCoords) return;
+      const coords = droneMap.polygonCoords;
+      let minX=Infinity, minY=Infinity, maxX=-Infinity, maxY=-Infinity;
+      for (const [x,y] of coords) { if(x<minX)minX=x; if(y<minY)minY=y; if(x>maxX)maxX=x; if(y>maxY)maxY=y; }
+      try {
+        const d = await api('GET', `/vworld/airspace?minx=${minX}&miny=${minY}&maxx=${maxX}&maxy=${maxY}`);
+        if (!d.success) { el.innerHTML = '<p class="loading-text">조회 실패</p>'; return; }
+        let features = d.data?.features || d.data?.response?.result?.featureCollection?.features || [];
+        if (!features.length) { el.innerHTML = '<span class="airspace-tag airspace-safe">공역 제한 없음</span>'; return; }
+        const types = { lt_c_aisaltc:'고도제한', lt_c_aisprhc:'비행금지', lt_c_aisresc:'제한구역', lt_c_aisdngc:'위험구역', lt_c_aistemp:'임시제한', lt_c_aisctrc:'관제구역' };
+        const found = new Set();
+        for (const f of features) { const id=f.id||''; for (const [k,v] of Object.entries(types)) if(id.includes(k)) found.add(v); }
+        if (!found.size) el.innerHTML = '<span class="airspace-tag airspace-safe">공역 제한 없음</span>';
+        else el.innerHTML = [...found].map(n => `<span class="airspace-tag ${n.includes('금지')||n.includes('위험')?'airspace-danger':'airspace-warn'}">${escHtml(n)}</span>`).join(' ');
+      } catch (e) { el.innerHTML = '<p class="loading-text">에러</p>'; }
+    }
+
+    // ─── 날짜 기본값 ───
+    function setDefaultDates() {
+      const t = new Date(); t.setDate(t.getDate()+1);
+      const f = d => d.toISOString().split('T')[0];
+      document.getElementById('plan-start-date').value = f(t);
+      document.getElementById('plan-end-date').value = f(t);
+      document.getElementById('plan-start-date2').value = f(t);
+      document.getElementById('plan-end-date2').value = f(t);
+    }
+
+    // ─── 조건부 UI 토글 ───
+    document.getElementById('aero-profit').addEventListener('change', e => {
+      document.getElementById('comp-nm-group').style.display = (e.target.value !== '1') ? 'block' : 'none';
+    });
+    document.getElementById('plan-purpose-etc').addEventListener('change', e => {
+      document.getElementById('purpose-etc-custom-group').style.display = (e.target.value === '') ? 'block' : 'none';
+    });
+
+    // ─── 비행/촬영 날짜 동기화 ───
+    document.getElementById('plan-start-date').addEventListener('change', e => {
+      const el2 = document.getElementById('plan-start-date2');
+      if (!el2.value) el2.value = e.target.value;
+    });
+    document.getElementById('plan-end-date').addEventListener('change', e => {
+      const el2 = document.getElementById('plan-end-date2');
+      if (!el2.value) el2.value = e.target.value;
+    });
+
+    // ─── 과거 비행 불러오기 ───
+    document.getElementById('btn-load-flight').addEventListener('click', async () => {
+      const panel = document.getElementById('flight-list-panel');
+      const container = document.getElementById('flight-list-container');
+
+      if (!panel.classList.contains('hidden')) {
+        panel.classList.add('hidden'); return;
+      }
+
+      panel.classList.remove('hidden');
+      container.innerHTML = '<p class="loading-text">불러오는 중...</p>';
+
+      try {
+        // 1) registerF에서 최근 비행 데이터 로드 (기본 - P_AC_FLIGHT_ID 없이)
+        const latestRes = await api('GET', '/flight/latest');
+        // 2) listAjaxP에서 과거 비행 목록 로드
+        let listRes = null;
+        try { listRes = await api('POST', '/flights', {}); } catch (e) {}
+
+        let html = '';
+
+        // 최근 비행 데이터 (registerF 기반 - 임시저장/편집중인 비행)
+        if (latestRes.success && latestRes.flight) {
+          const f = latestRes.flight;
+          const purpose = {'01':'안전진단','02':'공공활용','03':'레저비행','04':'사진촬영','05':'육량측량','06':'농업지원','07':'택배운송','99':'기타'}[f.PLAN_PURPOSE] || f.PLAN_PURPOSE || '';
+          const acName = f.AC_LIST?.[0]?.AC_NM || '';
+          const planEtc = f.PLAN_ADD_ETC || '';
+          html += `
+            <div class="flight-item" data-type="latest">
+              <div class="fi-title">📌 최근 비행 정보 불러오기</div>
+              <div class="fi-detail">${escHtml(purpose)} · ${escHtml(acName)} · 구역 ${f.PLAN_ADD_CNT || 0}개</div>
+              <div class="fi-detail">${escHtml(planEtc)}</div>
+            </div>`;
+        }
+
+        // 과거 비행 목록 (listAjaxP 기반)
+        if (listRes?.success && listRes.data?.data?.length) {
+          html += '<div style="margin:8px 0 4px;color:#8b949e;font-size:11px;">과거 비행 이력</div>';
+          for (const item of listRes.data.data) {
+            const applyId = item.APPLY_ID || item.AC_FLIGHT_ID || item.FP_ID || '';
+            const proUser = item.PRO_USER || '';
+            html += `
+              <div class="flight-item" data-type="list" data-apply-id="${escHtml(applyId)}" data-prouser="${escHtml(proUser)}" data-apply-no="${escHtml(item.APPLY_NO || '')}">
+                <div class="fi-title">#${escHtml(item.APPLY_NO || '')} ${escHtml(item.APPLY_TYPE_NM || '')}</div>
+                <div class="fi-detail">${escHtml(item.PRO_STEP_NM || '')} · ${escHtml(item.APPLY_YMD || item.APPLY_YMD_VW || '')}</div>
+              </div>`;
+          }
+        }
+
+        if (!html) {
+          container.innerHTML = '<p class="loading-text">불러올 비행 데이터가 없습니다.</p>';
+          return;
+        }
+
+        container.innerHTML = html;
+
+        // 클릭 이벤트: "최근 비행" 선택 시 폼에 적용
+        container.querySelectorAll('.flight-item[data-type="latest"]').forEach(el => {
+          el.addEventListener('click', () => {
+            applyFlightData(latestRes.flight, latestRes.aerophotos, latestRes.attachments);
+            panel.classList.add('hidden');
+          });
+        });
+
+        // 클릭 이벤트: 과거 비행 목록 선택 → 해당 비행의 데이터 로드
+        container.querySelectorAll('.flight-item[data-type="list"]').forEach(el => {
+          el.addEventListener('click', async () => {
+            const applyId = el.dataset.applyId;
+            const proUser = el.dataset.prouser || '';
+            el.style.opacity = '0.5';
+            el.querySelector('.fi-title').textContent += ' 로딩중...';
+            try {
+              // loadP 또는 registerF로 특정 비행 로드 (prouser 포함)
+              let loadUrl = '/flight/latest';
+              if (applyId) {
+                loadUrl += '?id=' + encodeURIComponent(applyId);
+                if (proUser) loadUrl += '&prouser=' + encodeURIComponent(proUser);
+              }
+              const loadRes = await api('GET', loadUrl);
+              if (loadRes.success && loadRes.flight) {
+                applyFlightData(loadRes.flight, loadRes.aerophotos, loadRes.attachments);
+              } else {
+                // P_AC_FLIGHT_ID가 안 먹히면 기본 데이터라도 사용
+                if (latestRes.success && latestRes.flight) {
+                  applyFlightData(latestRes.flight, latestRes.aerophotos, latestRes.attachments);
+                } else {
+                  alert('비행 데이터를 불러올 수 없습니다.');
+                }
+              }
+            } catch (err) {
+              alert('비행 데이터 로드 에러: ' + err.message);
+            }
+            panel.classList.add('hidden');
+          });
+        });
+
+      } catch (e) {
+        container.innerHTML = '<p class="loading-text">에러: ' + escHtml(e.message) + '</p>';
+      }
+    });
+
+    function applyFlightData(flight, aerophotos, attachments) {
+      // 비행 목적
+      if (flight.PLAN_PURPOSE) {
+        document.getElementById('plan-purpose').value = flight.PLAN_PURPOSE;
+      }
+
+      // 비행방식
+      const plan0 = flight.PLAN_LIST?.[0];
+      if (plan0?.PLAN_PURPOSE_ETC) {
+        const sel = document.getElementById('plan-purpose-etc');
+        const opts = [...sel.options];
+        const match = opts.find(o => o.value === plan0.PLAN_PURPOSE_ETC);
+        if (match) sel.value = match.value;
+        else {
+          sel.value = '';
+          document.getElementById('purpose-etc-custom-group').style.display = 'block';
+          document.getElementById('input-plan-purpose-etc').value = plan0.PLAN_PURPOSE_ETC;
+        }
+      }
+
+      // 고도
+      if (plan0?.PLAN_ALTITUDE_M) {
+        document.getElementById('plan-altitude').value = plan0.PLAN_ALTITUDE_M;
+      }
+
+      // 촬영 정보
+      if (plan0?.PLAN_PURPOSE_ETC_N) document.getElementById('plan-purpose-etc-n').value = plan0.PLAN_PURPOSE_ETC_N;
+      if (plan0?.PLAN_AERO_ETC || aerophotos?.PLAN_LIST?.[0]?.PLAN_AERO_ETC) {
+        document.getElementById('plan-aero-etc').value = plan0?.PLAN_AERO_ETC || aerophotos?.PLAN_LIST?.[0]?.PLAN_AERO_ETC;
+      }
+
+      // 기타
+      if (flight.PLAN_ADD_ETC) document.getElementById('plan-add-etc').value = flight.PLAN_ADD_ETC;
+      if (flight.PLAN_CAMERA_DESC || aerophotos?.PLAN_CAMERA_DESC) {
+        document.getElementById('plan-camera-desc').value = flight.PLAN_CAMERA_DESC || aerophotos?.PLAN_CAMERA_DESC;
+      }
+
+      // AERO_PROFIT
+      if (aerophotos?.AERO_PROFIT) {
+        document.getElementById('aero-profit').value = aerophotos.AERO_PROFIT;
+        document.getElementById('comp-nm-group').style.display = aerophotos.AERO_PROFIT !== '1' ? 'block' : 'none';
+      }
+      if (aerophotos?.APPLY_COMP_NM) document.getElementById('apply-comp-nm').value = aerophotos.APPLY_COMP_NM;
+
+      // 조종자 소속/직책
+      const pilot0 = flight.PILOT_LIST?.[0];
+      if (pilot0?.PILOT_COMP_NM) document.getElementById('pilot-comp-nm').value = pilot0.PILOT_COMP_NM;
+      if (pilot0?.PILOT_COMP_POSITON) document.getElementById('pilot-comp-positon').value = pilot0.PILOT_COMP_POSITON;
+
+      // 기체 자동 선택 (AC_LIST에서 일치하는 기체 찾기)
+      const flightAc = flight.AC_LIST?.[0];
+      if (flightAc && window._acList) {
+        const acIdx = window._acList.findIndex(a =>
+          a.AC_NM === flightAc.AC_NM || a.AC_PRODUCT_NO === flightAc.AC_PRODUCT_NO
+        );
+        if (acIdx >= 0) selectAc(acIdx);
+      }
+
+      // 촬영구분
+      if (flightAc) {
+        document.getElementById('ac-camera-video').checked = flightAc.AC_CAMERA_VIDEO === '1';
+        document.getElementById('ac-camera-viewpoint').checked = flightAc.AC_CAMERA_VIEWPOINT === '1';
+        document.getElementById('ac-camera-blueprint').checked = flightAc.AC_CAMERA_BLUEPRINT === '1';
+      }
+
+      // 첨부파일 자동 다운로드 및 설정
+      if (attachments && Object.keys(attachments).length > 0) {
+        loadPastAttachments(attachments);
+      }
+
+      // 성공 메시지
+      const suc = document.getElementById('submit-success');
+      suc.textContent = '✅ 과거 비행 정보가 적용되었습니다.';
+      suc.style.display = 'block';
+      setTimeout(() => { suc.style.display = 'none'; }, 3000);
+    }
+
+    // 첨부파일 다운로드 → file input에 설정
+    const ATT_FIELD_MAP = {
+      'ACT_PICTURE': 'att-photo',
+      'ACT_SPEC': 'att-spec',
+      'ACT_REG': 'att-reg',
+      'ACT_APPR': 'att-appr',
+      'ACT_PILOT_NM': 'att-pilot',
+      'ACT_INSURANCE': 'att-insurance',
+      'ACT_BUSINESS': 'att-business',
+      'ACT_TESTFLIGHT': 'att-testflight',
+      'ACT_OPERATION_MANUAL': 'att-operation',
+      'ACT_BUSINESS_P': 'att-businessp',
+    };
+
+    async function loadPastAttachments(attachments) {
+      // 과거 비행에서 불러온 파일 ID 저장 (제출 시 사용)
+      window._loadedFileIds = window._loadedFileIds || {};
+
+      for (const [field, info] of Object.entries(attachments)) {
+        const inputId = ATT_FIELD_MAP[field];
+        if (!inputId || !info?.name) continue;
+
+        const inputEl = document.getElementById(inputId);
+        const labelEl = document.getElementById(inputId + '-label');
+        if (!inputEl) continue;
+
+        // 파일 ID 저장 (제출 시 파일 재업로드 없이 ID 전달용)
+        if (info.id) {
+          window._loadedFileIds[field] = { id: info.id, name: info.name };
+        }
+
+        let fileLoaded = false;
+
+        // downloadURL 경로가 있으면 실제 파일 다운로드 시도
+        if (info.path) {
+          try {
+            const resp = await fetch(`/api/file/download?path=${encodeURIComponent(info.path)}`, {
+              headers: { 'x-session-id': sid },
+            });
+            if (resp.ok) {
+              const blob = await resp.blob();
+              const ext = info.name.split('.').pop().toLowerCase();
+              const mimeMap = { jpg:'image/jpeg', jpeg:'image/jpeg', png:'image/png', gif:'image/gif', pdf:'application/pdf', zip:'application/zip' };
+              const file = new File([blob], info.name, { type: mimeMap[ext] || blob.type });
+              const dt = new DataTransfer();
+              dt.items.add(file);
+              inputEl.files = dt.files;
+              fileLoaded = true;
+            }
+          } catch (e) {
+            console.warn('첨부파일 다운로드 실패:', field, e.message);
+          }
+        }
+
+        // 라벨 업데이트 (파일 다운로드 성공 또는 ID만 있어도 표시)
+        if (labelEl) {
+          labelEl.classList.add('has-file');
+          labelEl.textContent = '📄 ' + info.name + (fileLoaded ? '' : ' (기존파일)');
+        }
+      }
+    }
+
+    // ─── 파일 선택 표시 (모든 첨부) ───
+    const fileFields = [
+      { id: 'att-photo', label: 'att-photo-label', icon: '📷', text: '기체사진 (필수)' },
+      { id: 'att-spec', label: 'att-spec-label', icon: '📄', text: '제원및성능표 (필수)' },
+      { id: 'att-reg', label: 'att-reg-label', icon: '📄', text: '신고증명서' },
+      { id: 'att-appr', label: 'att-appr-label', icon: '📄', text: '안전성인증서' },
+      { id: 'att-pilot', label: 'att-pilot-label', icon: '📄', text: '조종자증명' },
+      { id: 'att-insurance', label: 'att-insurance-label', icon: '📄', text: '보험가입증명서' },
+      { id: 'att-business', label: 'att-business-label', icon: '📄', text: '사용사업등록증' },
+      { id: 'att-testflight', label: 'att-testflight-label', icon: '📄', text: '시험비행허가서' },
+      { id: 'att-operation', label: 'att-operation-label', icon: '📄', text: '조작방법서류' },
+      { id: 'att-businessp', label: 'att-businessp-label', icon: '📄', text: '촬영 첨부파일' },
+    ];
+    fileFields.forEach(ff => {
+      document.getElementById(ff.id).addEventListener('change', e => {
+        const lbl = document.getElementById(ff.label);
+        if (e.target.files.length) {
+          lbl.textContent = ff.icon + ' ' + e.target.files[0].name;
+          lbl.classList.add('has-file');
+        } else {
+          lbl.textContent = ff.icon + ' ' + ff.text;
+          lbl.classList.remove('has-file');
+        }
+      });
+    });
+
+    // ─── 제출 UI 초기화 ───
+    function resetSubmitUI() {
+      document.getElementById('submit-error').style.display = 'none';
+      document.getElementById('submit-success').style.display = 'none';
+      document.getElementById('submit-progress').classList.add('hidden');
+      document.getElementById('submit-results').innerHTML = '';
+      document.getElementById('btn-submit').disabled = false;
+      document.getElementById('btn-submit').textContent = '🚀 신청하기';
+    }
+
+    // ─── 신청 제출 ───
+    document.getElementById('btn-submit').addEventListener('click', async () => {
+      const errEl = document.getElementById('submit-error');
+      const sucEl = document.getElementById('submit-success');
+      errEl.style.display = 'none'; sucEl.style.display = 'none';
+
+      // 검증
+      if (!window._selectedAc) { showErr('기체를 선택해주세요.'); return; }
+      if (!droneMap || !droneMap.circles.length) { showErr('비행 영역을 그려주세요.'); return; }
+      if (!_userInfo) { showErr('프로필을 먼저 로드해주세요.'); return; }
+
+      const purpose = document.getElementById('plan-purpose').value;
+      const photoFile = document.getElementById('att-photo').files[0];
+      const specFile = document.getElementById('att-spec').files[0];
+      const hasPhotoId = window._loadedFileIds?.ACT_PICTURE;
+      const hasSpecId = window._loadedFileIds?.ACT_SPEC;
+      if (!photoFile && !hasPhotoId) { showErr('기체사진 첨부가 필요합니다.'); return; }
+      if (!specFile && !hasSpecId) { showErr('제원및성능표 첨부가 필요합니다.'); return; }
+
+      const startDate = document.getElementById('plan-start-date').value;
+      const endDate = document.getElementById('plan-end-date').value;
+      if (!startDate || !endDate) { showErr('비행 날짜를 입력하세요.'); return; }
+
+      // 폴리곤 중심 계산
+      const coords = droneMap.polygonCoords;
+      let cx = 0, cy = 0;
+      for (const [x,y] of coords) { cx += x; cy += y; }
+      cx /= coords.length; cy /= coords.length;
+      // EPSG:3857 → WGS84
+      const cLon = cx / 6378137 * 180 / Math.PI;
+      const cLat = (2 * Math.atan(Math.exp(cy / 6378137)) - Math.PI / 2) * 180 / Math.PI;
+
+      // 그룹 데이터 구성
+      const groups = droneMap.getCircleGroups().map(g => g.circles);
+
+      // FormData 구성 (multipart)
+      const purposeEtcSel = document.getElementById('plan-purpose-etc');
+      const purposeEtcVal = purposeEtcSel.value || document.getElementById('input-plan-purpose-etc').value;
+      const directPurId = purposeEtcSel.selectedOptions[0]?.dataset?.id || '00';
+
+      const formData = new FormData();
+      formData.append('data', JSON.stringify({
+        aircraft: window._selectedAc,
+        groups,
+        centroidLon: cLon,
+        centroidLat: cLat,
+        centroidX: cx,
+        centroidY: cy,
+        startDate,
+        endDate,
+        startDate2: document.getElementById('plan-start-date2').value || startDate,
+        endDate2: document.getElementById('plan-end-date2').value || endDate,
+        altitude: document.getElementById('plan-altitude').value || '100',
+        purpose,
+        purposeEtc: purposeEtcVal || '시계비행',
+        inputPurposeEtc: document.getElementById('input-plan-purpose-etc').value || '',
+        directPur: directPurId,
+        purposeEtcN: document.getElementById('plan-purpose-etc-n').value || '드론촬영',
+        aeroEtc: document.getElementById('plan-aero-etc').value || '취미',
+        cameraDesc: document.getElementById('plan-camera-desc').value || '',
+        planAddEtc: document.getElementById('plan-add-etc').value || '',
+        aeroProfit: document.getElementById('aero-profit').value || '1',
+        applyCompNm: document.getElementById('apply-comp-nm').value || '',
+        pilotCompNm: document.getElementById('pilot-comp-nm').value || '',
+        pilotCompPositon: document.getElementById('pilot-comp-positon').value || '',
+        acCameraVideo: document.getElementById('ac-camera-video').checked ? '1' : '',
+        acCameraViewpoint: document.getElementById('ac-camera-viewpoint').checked ? '1' : '',
+        acCameraBlueprint: document.getElementById('ac-camera-blueprint').checked ? '1' : '',
+        loadedFileIds: window._loadedFileIds || {},
+      }));
+      if (photoFile) formData.append('photo', photoFile);
+      if (specFile) formData.append('spec', specFile);
+      const regFile = document.getElementById('att-reg').files[0];
+      if (regFile) formData.append('reg', regFile);
+      const apprFile = document.getElementById('att-appr').files[0];
+      if (apprFile) formData.append('appr', apprFile);
+      const pilotFile = document.getElementById('att-pilot').files[0];
+      if (pilotFile) formData.append('pilot', pilotFile);
+      const insFile = document.getElementById('att-insurance').files[0];
+      if (insFile) formData.append('insurance', insFile);
+      const busFile = document.getElementById('att-business').files[0];
+      if (busFile) formData.append('business', busFile);
+      const tfFile = document.getElementById('att-testflight').files[0];
+      if (tfFile) formData.append('testflight', tfFile);
+      const opFile = document.getElementById('att-operation').files[0];
+      if (opFile) formData.append('operationManual', opFile);
+      const bpFile = document.getElementById('att-businessp').files[0];
+      if (bpFile) formData.append('businessP', bpFile);
+
+      // UI 진행 상태
+      const btn = document.getElementById('btn-submit');
+      btn.disabled = true; btn.innerHTML = '<span class="spinner"></span>신청 중...';
+      const progEl = document.getElementById('submit-progress');
+      progEl.classList.remove('hidden');
+      document.getElementById('progress-fill').style.width = '10%';
+      document.getElementById('progress-text').textContent = '서버에 제출 중...';
+      document.getElementById('submit-results').innerHTML = '';
+
+      try {
+        const opts = { method: 'POST', body: formData, headers: {} };
+        if (sid) opts.headers['x-session-id'] = sid;
+        // Content-Type은 FormData가 자동 설정 (boundary 포함)
+
+        document.getElementById('progress-fill').style.width = '30%';
+        document.getElementById('progress-text').textContent = '역지오코딩 + 기관조회 + 폼 제출 중...';
+
+        const res = await fetch(API + '/submit', opts);
+        const result = await res.json();
+
+        document.getElementById('progress-fill').style.width = '100%';
+
+        if (result.success) {
+          sucEl.textContent = result.message;
+          sucEl.style.display = 'block';
+          document.getElementById('progress-text').textContent = '완료!';
+        } else {
+          errEl.textContent = result.message;
+          errEl.style.display = 'block';
+          document.getElementById('progress-text').textContent = '일부 실패';
+        }
+
+        // 개별 결과 표시
+        const resEl = document.getElementById('submit-results');
+        if (result.results) {
+          resEl.innerHTML = result.results.map(r =>
+            `<div class="result-item ${r.success ? 'result-ok' : 'result-fail'}">
+              신청 ${r.group} (${r.circleCount}개 원): ${escHtml(r.message)}
+            </div>`).join('');
+        }
+      } catch (e) {
+        errEl.textContent = '제출 실패: ' + e.message;
+        errEl.style.display = 'block';
+        document.getElementById('progress-text').textContent = '에러 발생';
+      } finally {
+        btn.disabled = false;
+        btn.textContent = '🚀 신청하기';
+      }
+    });
+
+    function showErr(msg) {
+      const el = document.getElementById('submit-error');
+      el.textContent = msg; el.style.display = 'block';
+    }
+
+    // ─── 초기화 ───
+    (async () => {
+      if (sid) {
+        try {
+          const d = await api('GET', '/session');
+          if (d.success) { showMain(d.user); return; }
+        } catch (e) {}
+        localStorage.removeItem('sessionId'); sid = null;
+      }
+      showLogin();
+    })();
+  </script>
+</body>
+</html>

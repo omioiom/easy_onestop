@@ -1,0 +1,6 @@
+node_modules/
+.env
+_test_*.js
+*.txt
+*.html
+!public/**/*.html
