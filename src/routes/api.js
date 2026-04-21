@@ -215,7 +215,54 @@ function requireSession(req, res, next) {
 // ─── Vworld API 프록시 ───
 const VWORLD_KEY = '11735941-D649-334C-BA39-FB5D72A18BA3';
 const VWORLD_BASE = 'https://api.vworld.kr';
-const VWORLD_HEADERS = { Referer: 'https://drone.onestop.go.kr/' };
+const VWORLD_DEFAULT_DOMAIN = 'https://drone.onestop.go.kr';
+
+function getVworldDomainCandidates(req) {
+  const host = String(req.headers['x-forwarded-host'] || req.headers.host || '').split(',')[0].trim();
+  const proto = String(req.headers['x-forwarded-proto'] || 'https').split(',')[0].trim() || 'https';
+  const requestDomain = host ? `${proto}://${host}` : '';
+  return [requestDomain, VWORLD_DEFAULT_DOMAIN].filter((v, i, a) => v && a.indexOf(v) === i);
+}
+
+function parseVworldServiceException(xmlText) {
+  if (typeof xmlText !== 'string' || !xmlText.includes('ServiceException')) return '';
+  const m = xmlText.match(/<ServiceException[^>]*>([\s\S]*?)<\/ServiceException>/i);
+  return (m?.[1] || '').trim();
+}
+
+async function vworldGetWithDomainRetry(req, path, params, domainParamKey, shouldAccept) {
+  const domains = getVworldDomainCandidates(req);
+  let lastErr = null;
+
+  for (const domain of domains) {
+    try {
+      const requestParams = { ...params };
+      if (domainParamKey) requestParams[domainParamKey] = domain;
+
+      const response = await axios.get(`${VWORLD_BASE}${path}`, {
+        headers: { Referer: `${domain.replace(/\/+$/, '')}/` },
+        params: requestParams,
+      });
+
+      if (typeof response.data === 'string' && response.data.includes('ServiceException')) {
+        const msg = parseVworldServiceException(response.data) || 'Vworld ServiceException';
+        lastErr = new Error(msg);
+        continue;
+      }
+
+      if (typeof shouldAccept === 'function' && !shouldAccept(response.data)) {
+        lastErr = new Error('Vworld response rejected by validator');
+        continue;
+      }
+
+      return { data: response.data, domain };
+    } catch (err) {
+      lastErr = err;
+    }
+  }
+
+  throw lastErr || new Error('Vworld 요청 실패');
+}
 
 /**
  * GET /api/vworld/district?x=...&y=...
@@ -226,11 +273,8 @@ router.get('/vworld/district', async (req, res) => {
   if (!x || !y) return res.status(400).json({ success: false, message: 'x, y 좌표 필요' });
 
   try {
-    const result = await axios.get(`${VWORLD_BASE}/req/data`, {
-      headers: VWORLD_HEADERS,
-      params: {
+    const result = await vworldGetWithDomainRetry(req, '/req/data', {
         KEY: VWORLD_KEY,
-        DOMAIN: 'https://drone.onestop.go.kr',
         SERVICE: 'DATA',
         VERSION: '2.0',
         REQUEST: 'getfeature',
@@ -243,7 +287,9 @@ router.get('/vworld/district', async (req, res) => {
         CRS: 'EPSG:3857',
         BUFFER: 100,
         GEOMFILTER: `POINT(${x} ${y})`,
-      },
+    }, 'DOMAIN', (data) => {
+      const features = data?.response?.result?.featureCollection?.features || [];
+      return features.length > 0;
     });
     return res.json({ success: true, data: result.data });
   } catch (err) {
@@ -261,16 +307,13 @@ router.get('/vworld/address', async (req, res) => {
   if (!lng || !lat) return res.status(400).json({ success: false, message: 'lng, lat 필요' });
 
   try {
-    const result = await axios.get(`${VWORLD_BASE}/req/address`, {
-      headers: VWORLD_HEADERS,
-      params: {
+    const result = await vworldGetWithDomainRetry(req, '/req/address', {
         service: 'address',
         version: '2.0',
         key: VWORLD_KEY,
         type: 'BOTH',
         request: 'GetAddress',
         point: `${lng},${lat}`,
-      },
     });
     return res.json({ success: true, data: result.data });
   } catch (err) {
@@ -289,22 +332,16 @@ router.get('/vworld/search', async (req, res) => {
 
   try {
     // place 검색
-    const placeRes = await axios.get(`${VWORLD_BASE}/req/search`, {
-      headers: VWORLD_HEADERS,
-      params: {
+    const placeRes = await vworldGetWithDomainRetry(req, '/req/search', {
         service: 'search', request: 'search', version: '2.0',
         key: VWORLD_KEY, type: 'place', query: q,
         crs: 'EPSG:4326', size: 5, page: 1, format: 'json',
-      },
     });
     // address 검색
-    const addrRes = await axios.get(`${VWORLD_BASE}/req/search`, {
-      headers: VWORLD_HEADERS,
-      params: {
+    const addrRes = await vworldGetWithDomainRetry(req, '/req/search', {
         service: 'search', request: 'search', version: '2.0',
         key: VWORLD_KEY, type: 'address', query: q,
         crs: 'EPSG:4326', size: 5, page: 1, format: 'json',
-      },
     });
 
     const items = [];
@@ -358,12 +395,9 @@ router.get('/vworld/airspace', async (req, res) => {
   }
 
   try {
-    const result = await axios.get(`${VWORLD_BASE}/req/wfs`, {
-      headers: VWORLD_HEADERS,
-      params: {
+    const result = await vworldGetWithDomainRetry(req, '/req/wfs', {
         service: 'WFS',
         key: VWORLD_KEY,
-        domain: 'https://drone.onestop.go.kr',
         version: '1.1.0',
         request: 'GetFeature',
         typename,
@@ -371,8 +405,7 @@ router.get('/vworld/airspace', async (req, res) => {
         srsname: 'EPSG:4326',
         bbox: `${minx},${miny},${maxx},${maxy}`,
         maxFeatures: 1000,
-      },
-    });
+    }, 'domain');
     // Vworld가 에러 시 XML 반환할 수 있음
     if (typeof result.data === 'string' && result.data.includes('ServiceException')) {
       console.error('Vworld WFS 에러:', result.data.substring(0, 300));
@@ -908,18 +941,17 @@ router.post('/submit', requireSession, uploadFields, async (req, res) => {
 
     // 행정구역 조회 (ADDR_ID)
     try {
-      const distRes = await axios.get(`${VWORLD_BASE}/req/data`, {
-        headers: VWORLD_HEADERS,
-        params: {
+        const distRes = await vworldGetWithDomainRetry(req, '/req/data', {
           KEY: VWORLD_KEY,
-          DOMAIN: 'https://drone.onestop.go.kr',
           SERVICE: 'DATA', VERSION: '2.0', REQUEST: 'getfeature',
           FORMAT: 'json', SIZE: 1000, PAGE: 1,
           DATA: 'LT_C_ADEMD_INFO',
           GEOMETRY: true, ATTRIBUTE: true,
           CRS: 'EPSG:3857', BUFFER: 100,
           GEOMFILTER: `POINT(${centroidX} ${centroidY})`,
-        },
+      }, 'DOMAIN', (data) => {
+        const features = data?.response?.result?.featureCollection?.features || [];
+        return features.length > 0;
       });
       console.log('[신청] 행정구역 응답 status:', distRes.data?.response?.status);
       const features = distRes.data?.response?.result?.featureCollection?.features || [];
@@ -939,13 +971,10 @@ router.post('/submit', requireSession, uploadFields, async (req, res) => {
     // 역지오코딩으로 주소 보완
     if (!address) {
       try {
-        const addrRes = await axios.get(`${VWORLD_BASE}/req/address`, {
-          headers: VWORLD_HEADERS,
-          params: {
+        const addrRes = await vworldGetWithDomainRetry(req, '/req/address', {
             service: 'address', version: '2.0', key: VWORLD_KEY,
             type: 'BOTH', request: 'GetAddress',
             point: `${centroidLon},${centroidLat}`,
-          },
         });
         const results = addrRes.data?.response?.result || [];
         if (Array.isArray(results) && results.length > 0) {
