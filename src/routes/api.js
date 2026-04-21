@@ -973,6 +973,13 @@ router.post('/submit', requireSession, uploadFields, async (req, res) => {
     });
     const ud = userAjax.data || {};
 
+    const extractInput = (html, name) => {
+      if (!html || !name) return '';
+      const r1 = new RegExp(`name="${name}"[^>]*value="([^"]*)"`, 'i');
+      const r2 = new RegExp(`value="([^"]*)"[^>]*name="${name}"`, 'i');
+      return (html.match(r1) || html.match(r2) || [])[1] || '';
+    };
+
     // flight 임베딩 데이터에서 조종자 정보 추출
     let pilotData = {};
     const flightMatch = profileHtml.match(/(?:^|\s)flight\s*=\s*(\{"AC_FLIGHT_ID"[\s\S]*?\});/m);
@@ -982,23 +989,46 @@ router.post('/submit', requireSession, uploadFields, async (req, res) => {
 
     const userInfo = {
       APPLY_USER: applyUserId,
-      APPLY_USER_NM: ud.APPLY_USER_NM || '',
-      APPLY_BIRTHDAY_YMD: ud.APPLY_BIRTHDAY_YMD || '',
-      APPLY_PHONE_NO: ud.APPLY_PHONE_NO || '',
-      APPLY_TEL_NO: ud.APPLY_TEL_NO || '',
-      APPLY_ZIP_CD: ud.APPLY_ZIP_CD || '',
-      APPLY_ADDR: ud.APPLY_ADDR || '',
-      APPLY_ADDR_DETAIL: ud.APPLY_ADDR_DETAIL || '',
-      APPLY_COMP_NM: ud.APPLY_COMP_NM || '',
+      APPLY_USER_NM: ud.APPLY_USER_NM || extractInput(profileHtml, 'APPLY_USER_NM') || '',
+      APPLY_BIRTHDAY_YMD: ud.APPLY_BIRTHDAY_YMD || extractInput(profileHtml, 'APPLY_BIRTHDAY_YMD') || '',
+      APPLY_PHONE_NO: ud.APPLY_PHONE_NO || extractInput(profileHtml, 'APPLY_PHONE_NO') || '',
+      APPLY_TEL_NO: ud.APPLY_TEL_NO || extractInput(profileHtml, 'APPLY_TEL_NO') || '',
+      APPLY_ZIP_CD: ud.APPLY_ZIP_CD || extractInput(profileHtml, 'APPLY_ZIP_CD') || '',
+      APPLY_ADDR: ud.APPLY_ADDR || extractInput(profileHtml, 'APPLY_ADDR') || '',
+      APPLY_ADDR_DETAIL: ud.APPLY_ADDR_DETAIL || extractInput(profileHtml, 'APPLY_ADDR_DETAIL') || '',
+      APPLY_COMP_NM: ud.APPLY_COMP_NM || extractInput(profileHtml, 'APPLY_COMP_NM') || '',
       AERO_PROFIT: '1',
-      PILOT_NM: pilotData.PILOT_NM || ud.APPLY_USER_NM || '',
-      PILOT_BIRTHDAY_YMD: pilotData.PILOT_BIRTHDAY_YMD || ud.APPLY_BIRTHDAY_YMD || '',
-      PILOT_ZIP_CD: pilotData.PILOT_ZIP_CD || ud.APPLY_ZIP_CD || '',
-      PILOT_ADDR: pilotData.PILOT_ADDR || ud.APPLY_ADDR || '',
-      PILOT_ADDR_DETAIL: pilotData.PILOT_ADDR_DETAIL || ud.APPLY_ADDR_DETAIL || '',
-      PILOT_QUAL: pilotData.PILOT_QUAL || '',
-      PILOT_TEL_NO: pilotData.PILOT_TEL_NO || ud.APPLY_PHONE_NO || '',
-      PILOT_HP: pilotData.PILOT_HP || pilotData.PILOT_TEL_NO || ud.APPLY_PHONE_NO || '',
+      PILOT_NM:
+        pilotData.PILOT_NM ||
+        extractInput(profileHtml, 'PILOT_NM') ||
+        ud.APPLY_USER_NM ||
+        extractInput(profileHtml, 'APPLY_USER_NM') ||
+        req.session.memberId ||
+        '',
+      PILOT_BIRTHDAY_YMD:
+        pilotData.PILOT_BIRTHDAY_YMD ||
+        extractInput(profileHtml, 'PILOT_BIRTHDAY_YMD') ||
+        ud.APPLY_BIRTHDAY_YMD ||
+        extractInput(profileHtml, 'APPLY_BIRTHDAY_YMD') ||
+        '',
+      PILOT_ZIP_CD: pilotData.PILOT_ZIP_CD || extractInput(profileHtml, 'PILOT_ZIP_CD') || ud.APPLY_ZIP_CD || extractInput(profileHtml, 'APPLY_ZIP_CD') || '',
+      PILOT_ADDR: pilotData.PILOT_ADDR || extractInput(profileHtml, 'PILOT_ADDR') || ud.APPLY_ADDR || extractInput(profileHtml, 'APPLY_ADDR') || '',
+      PILOT_ADDR_DETAIL: pilotData.PILOT_ADDR_DETAIL || extractInput(profileHtml, 'PILOT_ADDR_DETAIL') || ud.APPLY_ADDR_DETAIL || extractInput(profileHtml, 'APPLY_ADDR_DETAIL') || '',
+      PILOT_QUAL: pilotData.PILOT_QUAL || extractInput(profileHtml, 'PILOT_QUAL') || '',
+      PILOT_TEL_NO:
+        pilotData.PILOT_TEL_NO ||
+        extractInput(profileHtml, 'PILOT_TEL_NO') ||
+        ud.APPLY_PHONE_NO ||
+        extractInput(profileHtml, 'APPLY_PHONE_NO') ||
+        '',
+      PILOT_HP:
+        pilotData.PILOT_HP ||
+        extractInput(profileHtml, 'PILOT_HP') ||
+        pilotData.PILOT_TEL_NO ||
+        extractInput(profileHtml, 'PILOT_TEL_NO') ||
+        ud.APPLY_PHONE_NO ||
+        extractInput(profileHtml, 'APPLY_PHONE_NO') ||
+        '',
       PILOT_ADD_SEQ: pilotData.PILOT_ADD_SEQ || '1',
       AC_FLIGHT_ID: pilotData.AC_FLIGHT_ID || '',
     };
