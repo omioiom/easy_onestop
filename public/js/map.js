@@ -198,6 +198,7 @@ class DroneMap {
 
     this._mode = 'none'; // 'none' | 'draw' | 'delete' | 'add'
     this._addRadius = 500; // 수동 추가 시 반지름(미터)
+    this._gridRadius = 500; // 자동 채움(그리드) 반지름(미터)
 
     // 공역 레이어
     this._airspaceLayers = {};   // layerKey → ol.layer.Vector
@@ -354,13 +355,13 @@ class DroneMap {
   _generateCircles() {
     if (!this.polygonCoords) return;
 
-    let allCircles = hexagonalCirclePack(this.polygonCoords, 500);
+    let allCircles = hexagonalCirclePack(this.polygonCoords, this._gridRadius);
 
     if (this.fillGaps && allCircles.length >= 3) {
       const bbox = polygonBbox(this.polygonCoords);
       const centerMerc = [(bbox.minX + bbox.maxX) / 2, (bbox.minY + bbox.maxY) / 2];
       const lat = mercatorToLonLat(centerMerc[0], centerMerc[1])[1];
-      const gapCircles = computeGapCircles(allCircles, this.polygonCoords, 500, lat);
+      const gapCircles = computeGapCircles(allCircles, this.polygonCoords, this._gridRadius, lat);
       allCircles = allCircles.concat(gapCircles);
     }
 
@@ -450,6 +451,10 @@ class DroneMap {
 
   setAddRadius(meters) {
     this._addRadius = Math.max(50, Math.min(5000, meters));
+  }
+
+  setGridRadius(meters) {
+    this._gridRadius = Math.max(100, Math.min(500, meters));
   }
 
   // 피처로 원 삭제

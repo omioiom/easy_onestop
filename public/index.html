@@ -167,7 +167,11 @@
           <div id="mode-msg" style="display:none; margin-top:6px; padding:6px 10px; border-radius:6px; font-size:12px; font-weight:600;"></div>
           <div style="margin-top:8px; display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
             <label style="font-size:13px; color:#8b949e; display:flex; align-items:center; gap:4px;">
-              반지름: <input type="number" id="add-radius" value="500" min="50" max="5000" step="50"
+              그리드 반지름: <input type="number" id="grid-radius" value="500" min="100" max="500" step="50"
+                style="width:70px; background:#161b22; border:1px solid #30363d; color:#e1e4e8; border-radius:4px; padding:2px 6px; font-size:13px;">m
+            </label>
+            <label style="font-size:13px; color:#8b949e; display:flex; align-items:center; gap:4px;">
+              수동 반지름: <input type="number" id="add-radius" value="500" min="50" max="5000" step="50"
                 style="width:70px; background:#161b22; border:1px solid #30363d; color:#e1e4e8; border-radius:4px; padding:2px 6px; font-size:13px;">m
             </label>
             <label style="font-size:13px; cursor:pointer; display:flex; align-items:center; gap:6px; color:#8b949e;">
@@ -650,6 +654,11 @@
     document.getElementById('add-radius').addEventListener('change', e => {
       if (!droneMap) return;
       droneMap.setAddRadius(Number(e.target.value));
+    });
+    document.getElementById('grid-radius').addEventListener('change', e => {
+      if (!droneMap) return;
+      droneMap.setGridRadius(Number(e.target.value));
+      if (droneMap.polygonCoords) droneMap._generateCircles();
     });
     document.getElementById('chk-fill-gaps').addEventListener('change', e => {
       if (!droneMap) return;
