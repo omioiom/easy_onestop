@@ -230,6 +230,27 @@ function parseVworldServiceException(xmlText) {
   return (m?.[1] || '').trim();
 }
 
+function mercatorToLonLat(x, y) {
+  const lon = (Number(x) / 20037508.34) * 180;
+  let lat = (Number(y) / 20037508.34) * 180;
+  lat = (180 / Math.PI) * (2 * Math.atan(Math.exp((lat * Math.PI) / 180)) - Math.PI / 2);
+  return [lon, lat];
+}
+
+function normalizeBboxTo4326(minx, miny, maxx, maxy) {
+  const a = [Number(minx), Number(miny), Number(maxx), Number(maxy)];
+  if (a.some(v => Number.isNaN(v))) return null;
+  const looks4326 = Math.abs(a[0]) <= 180 && Math.abs(a[2]) <= 180 && Math.abs(a[1]) <= 90 && Math.abs(a[3]) <= 90;
+  if (looks4326) return a;
+  const [lon1, lat1] = mercatorToLonLat(a[0], a[1]);
+  const [lon2, lat2] = mercatorToLonLat(a[2], a[3]);
+  const minLon = Math.min(lon1, lon2);
+  const minLat = Math.min(lat1, lat2);
+  const maxLon = Math.max(lon1, lon2);
+  const maxLat = Math.max(lat1, lat2);
+  return [minLon, minLat, maxLon, maxLat];
+}
+
 async function vworldGetWithDomainRetry(req, path, params, domainParamKey, shouldAccept) {
   const domains = getVworldDomainCandidates(req);
   let lastErr = null;
@@ -293,8 +314,32 @@ router.get('/vworld/district', async (req, res) => {
     });
     return res.json({ success: true, data: result.data });
   } catch (err) {
-    console.error('행정구역 조회 에러:', err.message);
-    return res.status(500).json({ success: false, message: err.message });
+    // EPSG:3857 조회 실패 시 EPSG:4326 포인트로 한 번 더 시도
+    try {
+      const [lon, lat] = mercatorToLonLat(x, y);
+      const fallback = await vworldGetWithDomainRetry(req, '/req/data', {
+        KEY: VWORLD_KEY,
+        SERVICE: 'DATA',
+        VERSION: '2.0',
+        REQUEST: 'getfeature',
+        FORMAT: 'json',
+        SIZE: 1000,
+        PAGE: 1,
+        DATA: 'LT_C_ADEMD_INFO',
+        GEOMETRY: true,
+        ATTRIBUTE: true,
+        CRS: 'EPSG:4326',
+        BUFFER: 0,
+        GEOMFILTER: `POINT(${lon} ${lat})`,
+      }, 'DOMAIN', (data) => {
+        const features = data?.response?.result?.featureCollection?.features || [];
+        return features.length > 0;
+      });
+      return res.json({ success: true, data: fallback.data });
+    } catch (e2) {
+      console.error('행정구역 조회 에러:', e2.message);
+      return res.status(500).json({ success: false, message: e2.message });
+    }
   }
 });
 
@@ -379,6 +424,10 @@ router.get('/vworld/airspace', async (req, res) => {
   if (!minx || !miny || !maxx || !maxy) {
     return res.status(400).json({ success: false, message: 'bbox 좌표 필요 (minx,miny,maxx,maxy)' });
   }
+  const bbox4326 = normalizeBboxTo4326(minx, miny, maxx, maxy);
+  if (!bbox4326) {
+    return res.status(400).json({ success: false, message: 'bbox 형식 오류' });
+  }
 
   // 허용 레이어 화이트리스트
   const ALLOWED_LAYERS = [
@@ -403,7 +452,7 @@ router.get('/vworld/airspace', async (req, res) => {
         typename,
         output: 'application/json',
         srsname: 'EPSG:4326',
-        bbox: `${minx},${miny},${maxx},${maxy}`,
+        bbox: `${bbox4326[0]},${bbox4326[1]},${bbox4326[2]},${bbox4326[3]}`,
         maxFeatures: 1000,
     }, 'domain');
     // Vworld가 에러 시 XML 반환할 수 있음
@@ -968,6 +1017,30 @@ router.post('/submit', requireSession, uploadFields, async (req, res) => {
       console.error('[신청] 행정구역 조회 실패:', e.message);
     }
 
+    // 1차 실패 시 4326 좌표로 행정구역 재시도
+    if (!addrId && centroidLon && centroidLat) {
+      try {
+        const distRes4326 = await vworldGetWithDomainRetry(req, '/req/data', {
+          KEY: VWORLD_KEY,
+          SERVICE: 'DATA', VERSION: '2.0', REQUEST: 'getfeature',
+          FORMAT: 'json', SIZE: 1000, PAGE: 1,
+          DATA: 'LT_C_ADEMD_INFO',
+          GEOMETRY: true, ATTRIBUTE: true,
+          CRS: 'EPSG:4326', BUFFER: 0,
+          GEOMFILTER: `POINT(${centroidLon} ${centroidLat})`,
+        }, 'DOMAIN');
+        const features2 = distRes4326.data?.response?.result?.featureCollection?.features || [];
+        if (features2.length > 0) {
+          const attrs2 = features2[0].properties || {};
+          addrId = attrs2.emd_cd || attrs2.EMD_CD || '';
+          address = address || attrs2.full_nm || attrs2.FULL_NM || '';
+          console.log(`[신청] 4326 재시도 성공 addrId=${addrId}`);
+        }
+      } catch (e2) {
+        console.error('[신청] 행정구역 4326 재시도 실패:', e2.message);
+      }
+    }
+
     // 역지오코딩으로 주소 보완
     if (!address) {
       try {
@@ -981,6 +1054,19 @@ router.post('/submit', requireSession, uploadFields, async (req, res) => {
           address = results[0].text || '';
         } else if (results?.text) {
           address = results.text;
+        }
+
+        // 역지오코딩 구조정보에서 행정동 코드 추정 (최후 폴백)
+        if (!addrId) {
+          const first = Array.isArray(results) ? results[0] : results;
+          const st = first?.structure || {};
+          const ac = String(st.level4AC || '').trim();
+          const lc = String(st.level4LC || '').trim();
+          const raw = ac || lc;
+          if (raw) {
+            addrId = raw.length >= 8 ? raw.substring(0, 8) : raw;
+            console.log(`[신청] 주소 구조정보 폴백 addrId=${addrId}`);
+          }
         }
       } catch (e) {
         console.error('[신청] 역지오코딩 실패:', e.message);
