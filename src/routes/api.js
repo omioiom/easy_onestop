@@ -251,8 +251,10 @@ function normalizeBboxTo4326(minx, miny, maxx, maxy) {
   return [minLon, minLat, maxLon, maxLat];
 }
 
-async function vworldGetWithDomainRetry(req, path, params, domainParamKey, shouldAccept) {
-  const domains = getVworldDomainCandidates(req);
+async function vworldGetWithDomainRetry(req, path, params, domainParamKey, shouldAccept, domainCandidates) {
+  const domains = (Array.isArray(domainCandidates) && domainCandidates.length)
+    ? domainCandidates
+    : getVworldDomainCandidates(req);
   let lastErr = null;
 
   for (const domain of domains) {
@@ -454,11 +456,23 @@ router.get('/vworld/airspace', async (req, res) => {
         srsname: 'EPSG:4326',
         bbox: `${bbox4326[0]},${bbox4326[1]},${bbox4326[2]},${bbox4326[3]}`,
         maxFeatures: 1000,
-    }, 'domain');
-    // Vworld가 에러 시 XML 반환할 수 있음
-    if (typeof result.data === 'string' && result.data.includes('ServiceException')) {
-      console.error('Vworld WFS 에러:', result.data.substring(0, 300));
-      return res.status(502).json({ success: false, message: 'Vworld WFS 오류' });
+      }, 'domain', null, [VWORLD_DEFAULT_DOMAIN]);
+      // Vworld가 에러 시 XML 문자열(ExceptionReport/ServiceException) 반환 가능
+      if (typeof result.data === 'string') {
+        const isXmlException = result.data.includes('ServiceException') || result.data.includes('ExceptionReport');
+        if (isXmlException) {
+          console.warn('Vworld WFS 레이어 오류(빈 결과 처리):', result.data.substring(0, 220));
+          return res.json({
+            success: true,
+            data: {
+              type: 'FeatureCollection',
+              features: [],
+              totalFeatures: 0,
+              numberMatched: 0,
+              numberReturned: 0,
+            },
+          });
+        }
     }
     return res.json({ success: true, data: result.data });
   } catch (err) {

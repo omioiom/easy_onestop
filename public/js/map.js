@@ -204,6 +204,7 @@ class DroneMap {
     this._airspaceVisible = {};  // layerKey → boolean
     this._airspaceCache = {};    // bbox_key → features
     this._airspaceLoading = false;
+    this._airspaceQueue = Promise.resolve();
     this._sessionId = null;
 
     this._initMap(targetId);
@@ -482,7 +483,9 @@ class DroneMap {
     this._airspaceVisible[layerKey] = visible;
     this._airspaceLayers[layerKey].setVisible(visible);
     if (visible && !this._airspaceCache[layerKey]) {
-      this._loadAirspaceLayer(layerKey);
+      this._airspaceQueue = this._airspaceQueue
+        .then(() => this._loadAirspaceLayer(layerKey))
+        .catch(() => {});
     }
   }
 
@@ -503,9 +506,20 @@ class DroneMap {
       const url = `/api/vworld/airspace?minx=124&miny=33&maxx=132&maxy=39&layers=${layerKey}`;
       console.log(`[공역] ${layerKey} 로드 시작`);
       const resp = await fetch(url);
+      if (!resp.ok) {
+        const txt = await resp.text();
+        console.warn(`[공역] ${layerKey} HTTP ${resp.status}:`, txt.slice(0, 200));
+        return;
+      }
       const json = await resp.json();
       if (!json.success || !json.data) {
         console.warn(`[공역] ${layerKey} 응답 실패`, json);
+        return;
+      }
+
+      if (!json.data || json.data.type !== 'FeatureCollection') {
+        console.warn(`[공역] ${layerKey} GeoJSON 아님, 빈 결과 처리`);
+        this._airspaceCache[layerKey] = true;
         return;
       }
 
