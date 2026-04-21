@@ -1033,6 +1033,23 @@ router.post('/submit', requireSession, uploadFields, async (req, res) => {
       AC_FLIGHT_ID: pilotData.AC_FLIGHT_ID || '',
     };
 
+    // 클라이언트 입력값(신청자/조종자 정보) 우선 반영
+    const normBirth = (v) => String(v || '').trim().replace(/\./g, '-').replace(/\//g, '-');
+    userInfo.APPLY_USER_NM = String(data.applyUserNm || userInfo.APPLY_USER_NM || '').trim();
+    userInfo.APPLY_PHONE_NO = String(data.applyPhoneNo || userInfo.APPLY_PHONE_NO || '').trim();
+    userInfo.APPLY_TEL_NO = String(data.applyPhoneNo || userInfo.APPLY_TEL_NO || userInfo.APPLY_PHONE_NO || '').trim();
+    userInfo.APPLY_BIRTHDAY_YMD = normBirth(data.applyBirthdayYmd || userInfo.APPLY_BIRTHDAY_YMD);
+    userInfo.APPLY_ADDR = String(data.applyAddr || userInfo.APPLY_ADDR || '').trim();
+    userInfo.APPLY_ADDR_DETAIL = String(data.applyAddrDetail || userInfo.APPLY_ADDR_DETAIL || '').trim();
+
+    userInfo.PILOT_NM = String(data.pilotNm || userInfo.PILOT_NM || userInfo.APPLY_USER_NM || '').trim();
+    userInfo.PILOT_TEL_NO = String(data.pilotTelNo || userInfo.PILOT_TEL_NO || userInfo.APPLY_PHONE_NO || '').trim();
+    userInfo.PILOT_HP = String(data.pilotTelNo || userInfo.PILOT_HP || userInfo.PILOT_TEL_NO || '').trim();
+    userInfo.PILOT_BIRTHDAY_YMD = normBirth(data.pilotBirthdayYmd || userInfo.PILOT_BIRTHDAY_YMD || userInfo.APPLY_BIRTHDAY_YMD);
+    userInfo.PILOT_QUAL = String(data.pilotQual || userInfo.PILOT_QUAL || '').trim();
+    userInfo.PILOT_ADDR = String(data.pilotAddr || userInfo.PILOT_ADDR || userInfo.APPLY_ADDR || '').trim();
+    userInfo.PILOT_ADDR_DETAIL = String(data.pilotAddrDetail || userInfo.PILOT_ADDR_DETAIL || userInfo.APPLY_ADDR_DETAIL || '').trim();
+
     // 2) 역지오코딩: 폴리곤 중심으로 주소 + ADDR_ID 가져오기
     console.log(`[신청] 역지오코딩... centroidX=${centroidX}, centroidY=${centroidY}, lon=${centroidLon}, lat=${centroidLat}`);
     let address = '';

@@ -528,14 +528,44 @@
         const d = await api('GET', '/userinfo');
         if (!d.success) { c.innerHTML = '<p class="loading-text">' + escHtml(d.message) + '</p>'; return; }
         _userInfo = d.data;
-        c.innerHTML = `<div class="profile-grid">
-          <span class="plabel">이름</span><span class="pvalue">${escHtml(_userInfo.APPLY_USER_NM)}</span>
-          <span class="plabel">전화</span><span class="pvalue">${escHtml(_userInfo.APPLY_PHONE_NO)}</span>
-          <span class="plabel">생년월일</span><span class="pvalue">${escHtml(_userInfo.APPLY_BIRTHDAY_YMD)}</span>
-          <span class="plabel">자격증</span><span class="pvalue">${escHtml(_userInfo.PILOT_QUAL || '없음')}</span>
-          <span class="plabel">주소</span><span class="pvalue" style="grid-column:span 1">${escHtml(_userInfo.APPLY_ADDR)}</span>
+        c.innerHTML = `<div class="profile-grid" style="grid-template-columns:1fr;gap:8px;">
+          <div class="form-group" style="margin-bottom:0;">
+            <label>이름</label>
+            <input type="text" id="profile-name" value="${escHtml(_userInfo.APPLY_USER_NM || '')}" placeholder="이름">
+          </div>
+          <div class="form-group" style="margin-bottom:0;">
+            <label>전화</label>
+            <input type="text" id="profile-phone" value="${escHtml(_userInfo.APPLY_PHONE_NO || _userInfo.PILOT_TEL_NO || '')}" placeholder="전화번호">
+          </div>
+          <div class="form-group" style="margin-bottom:0;">
+            <label>생년월일</label>
+            <input type="text" id="profile-birth" value="${escHtml(_userInfo.APPLY_BIRTHDAY_YMD || '')}" placeholder="YYYYMMDD 또는 YYYY-MM-DD">
+          </div>
+          <div class="form-group" style="margin-bottom:0;">
+            <label>자격증</label>
+            <input type="text" id="profile-qual" value="${escHtml(_userInfo.PILOT_QUAL || '')}" placeholder="자격번호 또는 비행경력">
+          </div>
+          <div class="form-group" style="margin-bottom:0;">
+            <label>주소</label>
+            <input type="text" id="profile-addr" value="${escHtml(_userInfo.APPLY_ADDR || '')}" placeholder="주소">
+          </div>
+          <div class="form-group" style="margin-bottom:0;">
+            <label>상세주소</label>
+            <input type="text" id="profile-addr-detail" value="${escHtml(_userInfo.APPLY_ADDR_DETAIL || '')}" placeholder="상세주소">
+          </div>
         </div>`;
       } catch (e) { c.innerHTML = '<p class="loading-text">에러: ' + escHtml(e.message) + '</p>'; }
+    }
+
+    function getProfileFormValues() {
+      return {
+        name: document.getElementById('profile-name')?.value?.trim() || '',
+        phone: document.getElementById('profile-phone')?.value?.trim() || '',
+        birth: document.getElementById('profile-birth')?.value?.trim() || '',
+        qual: document.getElementById('profile-qual')?.value?.trim() || '',
+        addr: document.getElementById('profile-addr')?.value?.trim() || '',
+        addrDetail: document.getElementById('profile-addr-detail')?.value?.trim() || '',
+      };
     }
 
     // ─── 지도 검색 ───
@@ -897,6 +927,32 @@
       if (pilot0?.PILOT_COMP_NM) document.getElementById('pilot-comp-nm').value = pilot0.PILOT_COMP_NM;
       if (pilot0?.PILOT_COMP_POSITON) document.getElementById('pilot-comp-positon').value = pilot0.PILOT_COMP_POSITON;
 
+      // 신청자/조종자 프로필 입력칸 동기화
+      if (document.getElementById('profile-name')) {
+        document.getElementById('profile-name').value =
+          pilot0?.PILOT_NM || flight.PILOT_NM || flight.APPLY_USER_NM || aerophotos?.APPLY_USER_NM || _userInfo?.APPLY_USER_NM || '';
+      }
+      if (document.getElementById('profile-phone')) {
+        document.getElementById('profile-phone').value =
+          pilot0?.PILOT_TEL_NO || flight.PILOT_TEL_NO || flight.APPLY_PHONE_NO || aerophotos?.APPLY_PHONE_NO || _userInfo?.APPLY_PHONE_NO || '';
+      }
+      if (document.getElementById('profile-birth')) {
+        document.getElementById('profile-birth').value =
+          pilot0?.PILOT_BIRTHDAY_YMD || flight.PILOT_BIRTHDAY_YMD || flight.APPLY_BIRTHDAY_YMD || aerophotos?.APPLY_BIRTHDAY_YMD || _userInfo?.APPLY_BIRTHDAY_YMD || '';
+      }
+      if (document.getElementById('profile-qual')) {
+        document.getElementById('profile-qual').value =
+          pilot0?.PILOT_QUAL || flight.PILOT_QUAL || _userInfo?.PILOT_QUAL || '';
+      }
+      if (document.getElementById('profile-addr')) {
+        document.getElementById('profile-addr').value =
+          pilot0?.PILOT_ADDR || flight.PILOT_ADDR || flight.APPLY_ADDR || aerophotos?.APPLY_ADDR || _userInfo?.APPLY_ADDR || '';
+      }
+      if (document.getElementById('profile-addr-detail')) {
+        document.getElementById('profile-addr-detail').value =
+          pilot0?.PILOT_ADDR_DETAIL || flight.PILOT_ADDR_DETAIL || flight.APPLY_ADDR_DETAIL || aerophotos?.APPLY_ADDR_DETAIL || _userInfo?.APPLY_ADDR_DETAIL || '';
+      }
+
       // 기체 자동 선택 (AC_LIST에서 일치하는 기체 찾기)
       const flightAc = flight.AC_LIST?.[0];
       if (flightAc && window._acList) {
@@ -1072,6 +1128,7 @@
       const directPurId = purposeEtcSel.selectedOptions[0]?.dataset?.id || '00';
 
       const formData = new FormData();
+      const profile = getProfileFormValues();
       formData.append('data', JSON.stringify({
         aircraft: window._selectedAc,
         groups,
@@ -1094,6 +1151,17 @@
         planAddEtc: document.getElementById('plan-add-etc').value || '',
         aeroProfit: document.getElementById('aero-profit').value || '1',
         applyCompNm: document.getElementById('apply-comp-nm').value || '',
+        applyUserNm: profile.name || '',
+        applyPhoneNo: profile.phone || '',
+        applyBirthdayYmd: profile.birth || '',
+        applyAddr: profile.addr || '',
+        applyAddrDetail: profile.addrDetail || '',
+        pilotNm: profile.name || '',
+        pilotTelNo: profile.phone || '',
+        pilotBirthdayYmd: profile.birth || '',
+        pilotQual: profile.qual || '',
+        pilotAddr: profile.addr || '',
+        pilotAddrDetail: profile.addrDetail || '',
         pilotCompNm: document.getElementById('pilot-comp-nm').value || '',
         pilotCompPositon: document.getElementById('pilot-comp-positon').value || '',
         acCameraVideo: document.getElementById('ac-camera-video').checked ? '1' : '',
