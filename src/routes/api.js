@@ -606,6 +606,9 @@ router.get('/userinfo', requireSession, async (req, res) => {
       PILOT_ADDR_DETAIL: pilot.PILOT_ADDR_DETAIL || userData.APPLY_ADDR_DETAIL || '',
       PILOT_QUAL: pilot.PILOT_QUAL || '',
       PILOT_TEL_NO: pilot.PILOT_TEL_NO || userData.APPLY_PHONE_NO || '',
+      PILOT_HP: pilot.PILOT_HP || pilot.PILOT_TEL_NO || userData.APPLY_PHONE_NO || '',
+      PILOT_ADD_SEQ: pilot.PILOT_ADD_SEQ || '1',
+      AC_FLIGHT_ID: pilot.AC_FLIGHT_ID || flightData?.AC_FLIGHT_ID || '',
       PILOT_COMP_NM: pilot.PILOT_COMP_NM || '',
       PILOT_COMP_POSITON: pilot.PILOT_COMP_POSITON || '',
     };
@@ -995,6 +998,9 @@ router.post('/submit', requireSession, uploadFields, async (req, res) => {
       PILOT_ADDR_DETAIL: pilotData.PILOT_ADDR_DETAIL || ud.APPLY_ADDR_DETAIL || '',
       PILOT_QUAL: pilotData.PILOT_QUAL || '',
       PILOT_TEL_NO: pilotData.PILOT_TEL_NO || ud.APPLY_PHONE_NO || '',
+      PILOT_HP: pilotData.PILOT_HP || pilotData.PILOT_TEL_NO || ud.APPLY_PHONE_NO || '',
+      PILOT_ADD_SEQ: pilotData.PILOT_ADD_SEQ || '1',
+      AC_FLIGHT_ID: pilotData.AC_FLIGHT_ID || '',
     };
 
     // 2) 역지오코딩: 폴리곤 중심으로 주소 + ADDR_ID 가져오기

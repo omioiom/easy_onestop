@@ -153,7 +153,10 @@ function buildRegisterForm({ userInfo, circles, aircraft, params, attachments, a
   form.append('PILOT_LIST[0].PILOT_QUAL', s(userInfo.PILOT_QUAL));
   form.append('PILOT_LIST[0].PILOT_COMP_NM', s(params.pilotCompNm || ''));
   form.append('PILOT_LIST[0].PILOT_COMP_POSITON', s(params.pilotCompPositon || ''));
+  form.append('PILOT_LIST[0].PILOT_HP', s(userInfo.PILOT_HP || userInfo.PILOT_TEL_NO || userInfo.APPLY_PHONE_NO));
   form.append('PILOT_LIST[0].PILOT_TEL_NO', s(userInfo.PILOT_TEL_NO || userInfo.APPLY_PHONE_NO));
+  form.append('PILOT_LIST[0].AC_FLIGHT_ID', s(userInfo.AC_FLIGHT_ID || ''));
+  form.append('PILOT_LIST[0].PILOT_ADD_SEQ', s(userInfo.PILOT_ADD_SEQ || '1'));
 
   // ═══════ 조종자 상위 레벨 중복 ═══════
   const pilotBdayDash = userInfo.PILOT_BIRTHDAY_YMD || userInfo.APPLY_BIRTHDAY_YMD || '';
